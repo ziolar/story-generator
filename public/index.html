@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover">
+<title>故事游戏生成器</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- 输入页 -->
+<div id="editor-view" class="view active">
+  <div class="editor-container">
+    <h1 class="logo">故事引擎</h1>
+    <p class="subtitle">输入文本或粘贴链接，AI 为你生成可玩的视觉小说</p>
+    <div class="input-tabs">
+      <button class="tab active" data-tab="text">输入文本</button>
+      <button class="tab" data-tab="url">粘贴链接</button>
+    </div>
+    <div class="tab-panel active" id="panel-text">
+      <textarea id="story-text" placeholder="在这里输入你的故事、文章、剧情梗概……&#10;&#10;可以是一段小说、一篇新闻、一个创意想法，AI 会自动将其转化为视觉小说游戏。"></textarea>
+    </div>
+    <div class="tab-panel" id="panel-url">
+      <div class="url-row">
+        <input type="url" id="story-url" placeholder="https://example.com/article">
+        <button id="btn-fetch" onclick="fetchUrl()">抓取</button>
+      </div>
+      <div id="url-preview" class="url-preview hidden"></div>
+    </div>
+    <button id="btn-generate" class="btn-generate" onclick="generate()">
+      <span class="btn-text">生成游戏</span>
+      <span class="btn-loading hidden">生成中<span class="dots"></span></span>
+    </button>
+    <p id="error-msg" class="error hidden"></p>
+  </div>
+</div>
+
+<!-- 游戏页 -->
+<div id="game-view" class="view">
+
+  <!-- 背景图层 -->
+  <div id="pixel-scene" class="pixel-scene">
+    <img id="scene-bg" class="scene-bg" src="" alt="">
+    <div id="bg-loading" class="bg-loading hidden">生成场景图<span class="dots"></span></div>
+    <img id="char-portrait" class="char-portrait hidden" src="" alt="">
+  </div>
+
+  <!-- 浮层插图 -->
+  <div id="panel-overlay" class="panel-overlay hidden">
+    <img id="panel-img" src="" alt="">
+    <div id="panel-caption" class="panel-caption"></div>
+  </div>
+
+  <!-- 档案卡覆盖层 -->
+  <div id="card-overlay" class="card-overlay hidden" onclick="closeCard()">
+    <div class="card-inner" onclick="event.stopPropagation()">
+      <div class="card-header">
+        <span class="card-label">档案</span>
+        <button class="card-close" onclick="closeCard()">✕</button>
+      </div>
+      <div id="card-title" class="card-title"></div>
+      <div id="card-text" class="card-text"></div>
+      <div id="card-teaser" class="card-teaser"></div>
+      <button class="card-btn" onclick="closeCard()">收起档案 ▶</button>
+    </div>
+  </div>
+
+  <!-- 英雄时刻覆盖层 -->
+  <div id="hero-overlay" class="hero-overlay hidden" onclick="closeHero()">
+    <div id="hero-title" class="hero-title"></div>
+    <div id="hero-subtitle" class="hero-subtitle"></div>
+    <div class="hero-tap">点击继续</div>
+  </div>
+
+  <!-- 抽卡覆盖层 -->
+  <div id="gacha-overlay" class="gacha-overlay hidden">
+    <div id="gacha-question" class="gacha-question"></div>
+    <div id="gacha-card" class="gacha-card">
+      <div class="gacha-card-inner">
+        <div class="gacha-card-front">？</div>
+        <div id="gacha-card-back" class="gacha-card-back"></div>
+      </div>
+    </div>
+    <button id="gacha-btn" class="gacha-btn" onclick="doGacha()">抽取命运</button>
+    <button id="gacha-next" class="gacha-next hidden" onclick="closeGacha()">继续 ▶</button>
+  </div>
+
+  <!-- 对话区 -->
+  <div class="dialog-area">
+    <div class="dialog-topbar">
+      <button class="btn-back" onclick="backToEditor()">◀ 返回</button>
+      <span id="game-title" class="game-title"></span>
+      <span id="game-chapter" class="game-chapter"></span>
+    </div>
+    <div class="dialog-box" id="dialog-box">
+      <div class="dialog-speaker" id="dialog-speaker"></div>
+      <div class="dialog-text" id="dialog-text"></div>
+    </div>
+    <div id="game-choices" class="game-choices hidden"></div>
+    <button id="btn-next" class="btn-next hidden" onclick="advance()">▶ 继续</button>
+  </div>
+
+  <!-- 结局页 -->
+  <div id="game-end" class="game-end hidden">
+    <div class="end-card">
+      <p class="end-label">═ 故事结束 ═</p>
+      <div id="end-title" class="end-title"></div>
+      <div id="end-text" class="end-text"></div>
+      <div class="end-btns">
+        <button onclick="restartGame()">重新开始</button>
+        <button onclick="backToEditor()">返回编辑</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

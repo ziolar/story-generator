@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>游戏预览检查</title>
+<link rel="stylesheet" href="preview.css">
+</head>
+<body>
+<div class="toolbar no-print">
+  <button onclick="history.back()">◀ 返回</button>
+  <h1 id="preview-title">游戏预览</h1>
+  <button onclick="window.print()">🖨 打印</button>
+  <button id="btn-play" onclick="goPlay()">▶ 开始游玩</button>
+</div>
+
+<!-- 1. 基本信息 -->
+<section class="panel" id="sec-info">
+  <h2 class="panel-title">① 基本信息</h2>
+  <div id="info-content"></div>
+</section>
+
+<!-- 1b. 角色立绘 -->
+<section class="panel" id="sec-portraits">
+  <h2 class="panel-title">① 角色立绘</h2>
+  <div id="portraits-progress" class="progress-bar no-print"><div id="portraits-bar"></div></div>
+  <div id="portraits-content" class="scenes-grid"></div>
+</section>
+
+<!-- 2. 故事线 -->
+<section class="panel" id="sec-story">
+  <h2 class="panel-title">② 故事线（平行故事）</h2>
+  <div id="story-content"></div>
+</section>
+
+<!-- 3. 分支逻辑图 -->
+<section class="panel" id="sec-branch">
+  <h2 class="panel-title">③ 逻辑分支图（选择→跳转）</h2>
+  <div id="branch-content"></div>
+</section>
+
+<!-- 4. 场景背景图 -->
+<section class="panel" id="sec-scenes">
+  <h2 class="panel-title">④ 场景背景图</h2>
+  <div id="scenes-progress" class="progress-bar no-print"><div id="scenes-bar"></div></div>
+  <div id="scenes-content" class="scenes-grid"></div>
+</section>
+
+<!-- 5. 抽卡池 -->
+<section class="panel" id="sec-gacha">
+  <h2 class="panel-title">⑤ 抽卡池</h2>
+  <div id="gacha-content"></div>
+</section>
+
+<!-- 6. 档案卡 -->
+<section class="panel" id="sec-cards">
+  <h2 class="panel-title">⑥ 档案卡</h2>
+  <div id="cards-content"></div>
+</section>
+
+<!-- 7. 结局列表 -->
+<section class="panel" id="sec-endings">
+  <h2 class="panel-title">⑦ 结局列表</h2>
+  <div id="endings-content"></div>
+</section>
+
+<script src="preview.js"></script>
+</body>
+</html>

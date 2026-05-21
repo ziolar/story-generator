@@ -1,0 +1,13 @@
+{
+  "name": "story-game-generator",
+  "version": "1.0.0",
+  "description": "输入文本或链接，AI 自动生成互动故事游戏",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cheerio": "^1.0.0-rc.12"
+  }
+}
