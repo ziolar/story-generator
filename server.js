@@ -125,6 +125,7 @@ app.post('/api/generate', async (req, res) => {
       body: JSON.stringify({
         model: 'deepseek-chat',
         max_tokens: 16000,
+        stream: true,
         messages: [
           { role: 'system', content: SYSTEM_PROMPT },
           { role: 'user', content: `请根据以下内容生成视觉小说游戏：\n\n${text.substring(0, 6000)}` }
@@ -137,8 +138,23 @@ app.post('/api/generate', async (req, res) => {
       return res.status(resp.status).json({ error: 'AI 接口错误: ' + err });
     }
 
-    const data = await resp.json();
-    const content = data.choices[0].message.content;
+    // Stream response to keep connection alive
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+
+    let content = '';
+    const decoder = new TextDecoder();
+    for await (const chunk of resp.body) {
+      const lines = decoder.decode(chunk).split('\n');
+      for (const line of lines) {
+        if (!line.startsWith('data: ') || line === 'data: [DONE]') continue;
+        try {
+          const delta = JSON.parse(line.slice(6)).choices[0].delta.content || '';
+          content += delta;
+          res.write('.');  // heartbeat to prevent timeout
+        } catch {}
+      }
+    }
     console.log('[AI raw]', content.substring(0, 500));
 
     const cleaned = content
