@@ -51,8 +51,12 @@ async function generate() {
     const res = await fetch('/api/generate', {
       method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({text})
     });
-    const data = await res.json();
-    if (data.error) throw new Error(data.error);
+    const raw = await res.text();
+    const dataLine = raw.split('\n').find(l => l.startsWith('DATA:'));
+    const errLine = raw.split('\n').find(l => l.startsWith('ERROR:'));
+    if (errLine) throw new Error(errLine.slice(6));
+    if (!dataLine) throw new Error('生成失败，请重试');
+    const data = JSON.parse(dataLine.slice(5));
     if (!data.storylines && !data.script) throw new Error('生成数据格式异常，请重试');
     gameData = data;
     showPostGenButtons();

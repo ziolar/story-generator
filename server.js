@@ -163,54 +163,41 @@ app.post('/api/generate', async (req, res) => {
       .replace(/[\u2018\u2019\u300e\u300f]/g, "'")
       .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, '');
     const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) return res.status(500).json({ error: 'AI 返回格式异常：无 JSON 块' });
+    const sendError = (msg) => { res.write('\nERROR:' + msg); res.end(); };
+
+    if (!jsonMatch) return sendError('AI 返回格式异常：无 JSON 块');
 
     let gameData;
     try {
       gameData = JSON.parse(jsonMatch[0]);
     } catch (parseErr) {
-      // 第一次解析失败，尝试修复常见问题后重试
-      console.warn('[parse error, attempting fix]', parseErr.message);
       try {
-        let fixed = jsonMatch[0]
-          // 去掉注释 // ...
+        const fixed = jsonMatch[0]
           .replace(/(?<=,|{|\[)\s*\/\/[^\n]*/g, '')
-          // 去掉尾逗号 ,} 或 ,]
           .replace(/,\s*([}\]])/g, '$1')
-          // 修复未转义的换行符（在字符串值内部）
           .replace(/"([^"]*)\n([^"]*)"/g, (m, a, b) => `"${a}\\n${b}"`)
-          // 修复未转义的制表符
           .replace(/"([^"]*)\t([^"]*)"/g, (m, a, b) => `"${a}\\t${b}"`);
         gameData = JSON.parse(fixed);
-        console.log('[parse fix] 修复成功');
-      } catch (fixErr) {
-        const pos = parseInt(parseErr.message.match(/position (\d+)/)?.[1] || '0');
-        console.error('[parse error]', parseErr.message);
-        console.error('[context]', jsonMatch[0].substring(Math.max(0, pos - 80), pos + 80));
-        return res.status(500).json({ error: 'JSON 解析失败: ' + parseErr.message });
+      } catch {
+        return sendError('JSON 解析失败: ' + parseErr.message);
       }
     }
 
-    // 兼容旧格式：如果有 script 但没有 storylines，自动转换
     if (gameData.script && !gameData.storylines) {
-      console.log('[compat] 检测到旧 script 格式，自动转换为 storylines');
       gameData.storylines = { main: { name: '主线', description: '完整故事', nodes: gameData.script } };
       delete gameData.script;
     }
 
-    if (!gameData.storylines || !Object.keys(gameData.storylines).length) {
-      console.error('[missing storylines]', JSON.stringify(gameData).substring(0, 500));
-      return res.status(500).json({ error: 'AI 未生成 storylines，请重试' });
-    }
+    if (!gameData.storylines || !Object.keys(gameData.storylines).length)
+      return sendError('AI 未生成 storylines，请重试');
+    if (!gameData.storylines.main?.nodes?.length)
+      return sendError('AI 未生成 main 主线故事，请重试');
 
-    if (!gameData.storylines.main || !gameData.storylines.main.nodes || !gameData.storylines.main.nodes.length) {
-      console.error('[missing main storyline]', Object.keys(gameData.storylines));
-      return res.status(500).json({ error: 'AI 未生成 main 主线故事，请重试' });
-    }
-
-    res.json(gameData);
+    res.write('\nDATA:' + JSON.stringify(gameData));
+    res.end();
   } catch (e) {
-    res.status(500).json({ error: '生成失败: ' + e.message });
+    if (!res.headersSent) res.status(500).json({ error: '生成失败: ' + e.message });
+    else { res.write('\nERROR:生成失败: ' + e.message); res.end(); }
   }
 });
 
