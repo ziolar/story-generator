@@ -142,8 +142,8 @@ app.post('/api/generate', async (req, res) => {
     console.log('[AI raw]', content.substring(0, 500));
 
     const cleaned = content
-      .replace(/```json\s*/gi, ‘’)
-      .replace(/```\s*/g, ‘’)
+      .replace(/\x60\x60\x60json\s*/gi, ‘’)
+      .replace(/\x60\x60\x60\s*/g, ‘’)
       .replace(/[“”「」＂]/g, ‘”’)
       .replace(/[‘’『』]/g, “’”)
       .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, ‘’);
