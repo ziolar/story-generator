@@ -172,11 +172,15 @@ app.post('/api/generate', async (req, res) => {
       gameData = JSON.parse(jsonMatch[0]);
     } catch (parseErr) {
       try {
-        const fixed = jsonMatch[0]
-          .replace(/(?<=,|{|\[)\s*\/\/[^\n]*/g, '')
-          .replace(/,\s*([}\]])/g, '$1')
-          .replace(/"([^"]*)\n([^"]*)"/g, (m, a, b) => `"${a}\\n${b}"`)
-          .replace(/"([^"]*)\t([^"]*)"/g, (m, a, b) => `"${a}\\t${b}"`);
+        // Fix common AI JSON issues: trailing commas, comments, unescaped control chars
+        let fixed = jsonMatch[0]
+          .replace(/\/\/[^\n]*/g, '')           // remove // comments
+          .replace(/,\s*([}\]])/g, '$1')        // trailing commas
+          .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g, ' '); // control chars
+        // Fix unescaped newlines/tabs inside string values
+        fixed = fixed.replace(/"((?:[^"\\]|\\.)*)"/gs, (m, inner) =>
+          '"' + inner.replace(/\n/g, '\\n').replace(/\r/g, '\\r').replace(/\t/g, '\\t') + '"'
+        );
         gameData = JSON.parse(fixed);
       } catch {
         return sendError('JSON 解析失败: ' + parseErr.message);
