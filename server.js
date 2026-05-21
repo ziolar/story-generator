@@ -142,10 +142,9 @@ app.post('/api/generate', async (req, res) => {
     console.log('[AI raw]', content.substring(0, 500));
 
     const cleaned = content
-      .replace(/\x60\x60\x60json\s*/gi, ‘’)
-      .replace(/\x60\x60\x60\s*/g, ‘’)
-      .replace(/[“”「」＂]/g, ‘”’)
-      .replace(/[‘’『』]/g, “’”)
+      .replace(/```json\n?/gi, ‘’).replace(/```\n?/g, ‘’)
+      .replace(/[\u201c\u201d\u300c\u300d\uff02]/g, ‘”’)
+      .replace(/[\u2018\u2019\u300e\u300f]/g, “’”)
       .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, ‘’);
     const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
     if (!jsonMatch) return res.status(500).json({ error: 'AI 返回格式异常：无 JSON 块' });
