@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: story-generator
+    runtime: node
+    buildCommand: npm install
+    startCommand: node server.js
+    envVars:
+      - key: DEEPSEEK_API_KEY
+        sync: false
+      - key: IMAGE_API_KEY
+        sync: false
