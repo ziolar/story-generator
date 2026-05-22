@@ -111,6 +111,8 @@ function startGame() {
 async function generatePortraits() {
   const chars = gameData.characters || [];
   for (const c of chars) {
+    // 预览页已生成过，直接复用
+    if (c.portrait) { charMap[c.id].portrait = c.portrait; continue; }
     try {
       const res = await fetch('/api/gen-portrait', {
         method: 'POST', headers: {'Content-Type':'application/json'},
@@ -159,6 +161,14 @@ async function handleScene(node) {
 
   if (bgCache[node.sceneKey]) {
     setBg(bgEl, bgCache[node.sceneKey]);
+    advance();
+    return;
+  }
+
+  // 预览页已生成过，直接复用
+  if (node.bgCache) {
+    bgCache[node.sceneKey] = node.bgCache;
+    setBg(bgEl, node.bgCache);
     advance();
     return;
   }

@@ -61,7 +61,16 @@ async function genPortrait(id, name) {
   const st = document.getElementById('pst-' + id);
   const ph = document.getElementById('pph-' + id);
   const promptEl = document.getElementById('pprompt-' + id);
-  if (st) st.textContent = '生成中…';
+
+  // 已有缓存，直接显示
+  const char = (gameData.characters || []).find(c => c.id === id);
+  if (char?.portrait) {
+    let img = document.getElementById('pimg-' + id);
+    if (!img) { img = document.createElement('img'); img.id = 'pimg-' + id; ph?.replaceWith(img); }
+    img.src = char.portrait;
+    if (st) st.textContent = '✓ 已生成';
+    return;
+  }
   try {
     const res = await fetch('/api/gen-portrait', {
       method: 'POST', headers: {'Content-Type':'application/json'},
@@ -73,6 +82,12 @@ async function genPortrait(id, name) {
       if (!img) { img = document.createElement('img'); img.id = 'pimg-' + id; ph?.replaceWith(img); }
       img.src = data.b64;
       if (st) st.textContent = '✓ 已生成';
+      // 存回 gameData，游戏启动时直接复用
+      const char = (gameData.characters || []).find(c => c.id === id);
+      if (char) {
+        char.portrait = data.b64;
+        localStorage.setItem('gamePreview', JSON.stringify(gameData));
+      }
     } else {
       if (st) st.textContent = '生成失败';
     }
@@ -350,7 +365,17 @@ async function genBg(key) {
   const ph = document.getElementById('ph-' + key);
   const promptEl = document.getElementById('prompt-' + key);
   const prompt = promptEl ? promptEl.value : key;
-  if (st) st.textContent = '生成中…';
+
+  // 已有缓存，直接显示
+  const allNodes = Object.values(gameData.storylines || {}).flatMap(l => l.nodes || []);
+  const cached = allNodes.find(n => n.type === 'scene' && n.sceneKey === key && n.bgCache);
+  if (cached) {
+    let img = document.getElementById('img-' + key);
+    if (!img) { img = document.createElement('img'); img.id = 'img-' + key; ph?.replaceWith(img); }
+    img.src = cached.bgCache;
+    if (st) st.textContent = '✓ 已生成';
+    return;
+  }
   try {
     const res = await fetch('/api/gen-bg', {
       method: 'POST', headers: {'Content-Type':'application/json'},
@@ -366,6 +391,10 @@ async function genBg(key) {
       }
       img.src = data.b64;
       if (st) st.textContent = '✓ 已生成';
+      // 存回 gameData 所有同 sceneKey 的 scene 节点，游戏启动时直接复用
+      const allNodes = Object.values(gameData.storylines || {}).flatMap(l => l.nodes || []);
+      allNodes.filter(n => n.type === 'scene' && n.sceneKey === key).forEach(n => n.bgCache = data.b64);
+      localStorage.setItem('gamePreview', JSON.stringify(gameData));
     } else {
       if (st) st.textContent = '生成失败';
     }
