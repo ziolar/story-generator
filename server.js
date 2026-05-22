@@ -89,10 +89,12 @@ const SYSTEM_PROMPT = `你是一个视觉小说游戏生成器。将用户提供
 11. 关键情节转折处放 hero 节点
 12. 至少一个 gacha 节点，pool 权重之和为100
 13. dialog 的 speaker 用 characters 中的 id，旁白用 "narrator"
-14. 对话风格自然，符合角色性格，每段文字不超过50字
+14. 对话风格自然，符合角色性格，每段文字不超过30字
 15. characters 的 description 字段用英文描述角色外貌，如 "young woman, short black hair, blue eyes, casual clothes"
 16. storylines 的 key 用英文蛇形命名（如 chen_xia_line），name 用中文
-17. 只输出 JSON，不要任何其他文字`;
+17. 只输出纯 JSON，不要 markdown 代码块，不要任何其他文字
+18. 每条故事线节点数不超过15个，主线不超过10个节点
+19. 所有字符串值中不得使用中文引号""，只用英文双引号`;
 
 app.post('/api/fetch-url', async (req, res) => {
   const { url } = req.body;
@@ -113,95 +115,98 @@ app.post('/api/fetch-url', async (req, res) => {
   }
 });
 
+async function callDeepSeek(messages, onChunk) {
+  const resp = await fetch('https://api.deepseek.com/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${API_KEY}` },
+    body: JSON.stringify({ model: 'deepseek-v4-pro', max_tokens: 8000, stream: true, response_format: { type: 'json_object' }, messages })
+  });
+  if (!resp.ok) throw new Error('AI 接口错误: ' + await resp.text());
+  let content = '';
+  const decoder = new TextDecoder();
+  for await (const chunk of resp.body) {
+    for (const line of decoder.decode(chunk).split('\n')) {
+      if (!line.startsWith('data: ') || line === 'data: [DONE]') continue;
+      try { const delta = JSON.parse(line.slice(6)).choices[0].delta.content || ''; content += delta; onChunk(); } catch {}
+    }
+  }
+  return content;
+}
+
+function parseGameData(content) {
+  const cleaned = content
+    .replace(/```json\n?/gi, '').replace(/```\n?/g, '')
+    .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, '');
+  const m = cleaned.match(/\{[\s\S]*\}/);
+  if (!m) throw new Error('无 JSON 块');
+
+  try {
+    const data = JSON.parse(m[0]);
+    if (data.script && !data.storylines) {
+      data.storylines = { main: { name: '主线', description: '完整故事', nodes: data.script } };
+      delete data.script;
+    }
+    if (!data.storylines?.main?.nodes?.length) throw new Error('缺少主线数据');
+    return data;
+  } catch {
+    // Attempt repair
+    let fixed = m[0]
+      // Replace curly quotes that AI uses inside strings (e.g. "祝融") with escaped quotes
+      .replace(/[\u201c\u201d]/g, '\\"')
+      // Fix missing opening quote on property names: ,name": → ,"name":
+      .replace(/,\s*([a-zA-Z_][a-zA-Z0-9_]*)":/g, ',"$1":')
+      // Fix missing opening quote on string values: :"word" → :"word"
+      .replace(/"([^"]+)":\s*([a-zA-Z\u4e00-\u9fff][^",\[\]{}\n]*?)"/g, '"$1": "$2"')
+      // Remove trailing commas
+      .replace(/,\s*([}\]])/g, '$1');
+
+    try {
+      const data = JSON.parse(fixed);
+      if (data.script && !data.storylines) {
+        data.storylines = { main: { name: '主线', description: '完整故事', nodes: data.script } };
+        delete data.script;
+      }
+      if (!data.storylines?.main?.nodes?.length) throw new Error('缺少主线数据');
+      return data;
+    } catch (e2) {
+      const pos = parseInt(e2.message.match(/position (\d+)/)?.[1] || '0');
+      console.error('[parse error]', e2.message);
+      console.error('[context]', fixed.substring(Math.max(0, pos - 80), pos + 80));
+      throw e2;
+    }
+  }
+}
+
 app.post('/api/generate', async (req, res) => {
   const { text } = req.body;
   if (!text) return res.status(400).json({ error: '请提供文本内容' });
   if (!API_KEY) return res.status(500).json({ error: '未配置 DEEPSEEK_API_KEY 环境变量' });
 
-  try {
-    const resp = await fetch('https://api.deepseek.com/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${API_KEY}` },
-      body: JSON.stringify({
-        model: 'deepseek-chat',
-        max_tokens: 16000,
-        stream: true,
-        messages: [
-          { role: 'system', content: SYSTEM_PROMPT },
-          { role: 'user', content: `请根据以下内容生成视觉小说游戏：\n\n${text.substring(0, 6000)}` }
-        ]
-      })
-    });
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  const sendError = (msg) => { res.write('\nERROR:' + msg); res.end(); };
 
-    if (!resp.ok) {
-      const err = await resp.text();
-      return res.status(resp.status).json({ error: 'AI 接口错误: ' + err });
-    }
-
-    // Stream response to keep connection alive
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
-
-    let content = '';
-    const decoder = new TextDecoder();
-    for await (const chunk of resp.body) {
-      const lines = decoder.decode(chunk).split('\n');
-      for (const line of lines) {
-        if (!line.startsWith('data: ') || line === 'data: [DONE]') continue;
-        try {
-          const delta = JSON.parse(line.slice(6)).choices[0].delta.content || '';
-          content += delta;
-          res.write('.');  // heartbeat to prevent timeout
-        } catch {}
-      }
-    }
-    console.log('[AI raw]', content.substring(0, 500));
-
-    const cleaned = content
-      .replace(/```json\n?/gi, '').replace(/```\n?/g, '')
-      .replace(/[\u201c\u201d\u300c\u300d\uff02]/g, '"')
-      .replace(/[\u2018\u2019\u300e\u300f]/g, "'")
-      .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, '');
-    const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
-    const sendError = (msg) => { res.write('\nERROR:' + msg); res.end(); };
-
-    if (!jsonMatch) return sendError('AI 返回格式异常：无 JSON 块');
-
-    let gameData;
+  let lastBadJson = '';
+  for (let attempt = 0; attempt < 2; attempt++) {
     try {
-      gameData = JSON.parse(jsonMatch[0]);
-    } catch (parseErr) {
-      try {
-        // Fix common AI JSON issues: trailing commas, comments, unescaped control chars
-        let fixed = jsonMatch[0]
-          .replace(/\/\/[^\n]*/g, '')           // remove // comments
-          .replace(/,\s*([}\]])/g, '$1')        // trailing commas
-          .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g, ' '); // control chars
-        // Fix unescaped newlines/tabs inside string values
-        fixed = fixed.replace(/"((?:[^"\\]|\\.)*)"/gs, (m, inner) =>
-          '"' + inner.replace(/\n/g, '\\n').replace(/\r/g, '\\r').replace(/\t/g, '\\t') + '"'
-        );
-        gameData = JSON.parse(fixed);
-      } catch {
-        return sendError('JSON 解析失败: ' + parseErr.message);
-      }
+      const messages = attempt === 0
+        ? [
+            { role: 'system', content: SYSTEM_PROMPT },
+            { role: 'user', content: `请根据以下内容生成视觉小说游戏：\n\n${text.substring(0, 6000)}` }
+          ]
+        : [
+            { role: 'user', content: `以下JSON格式有误，请修复并只输出合法JSON，不要任何其他文字：\n\n${lastBadJson.substring(0, 8000)}` }
+          ];
+      const content = await callDeepSeek(messages, () => res.write('.'));
+      lastBadJson = content;
+      const gameData = parseGameData(content);
+      res.write('\nDATA:' + JSON.stringify(gameData));
+      return res.end();
+    } catch (e) {
+      console.error(`[attempt ${attempt + 1} failed]`, e.message);
+      if (attempt === 1) return sendError('生成失败，请重试');
+      res.write('\n[fixing...]');
     }
-
-    if (gameData.script && !gameData.storylines) {
-      gameData.storylines = { main: { name: '主线', description: '完整故事', nodes: gameData.script } };
-      delete gameData.script;
-    }
-
-    if (!gameData.storylines || !Object.keys(gameData.storylines).length)
-      return sendError('AI 未生成 storylines，请重试');
-    if (!gameData.storylines.main?.nodes?.length)
-      return sendError('AI 未生成 main 主线故事，请重试');
-
-    res.write('\nDATA:' + JSON.stringify(gameData));
-    res.end();
-  } catch (e) {
-    if (!res.headersSent) res.status(500).json({ error: '生成失败: ' + e.message });
-    else { res.write('\nERROR:生成失败: ' + e.message); res.end(); }
   }
 });
 
