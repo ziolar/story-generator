@@ -1,5 +1,6 @@
 // load .env if present
 const fs = require('fs');
+const { jsonrepair } = require('jsonrepair');
 const envPath = require('path').join(__dirname, '.env');
 if (fs.existsSync(envPath)) {
   fs.readFileSync(envPath, 'utf8').split('\n').forEach(line => {
@@ -76,9 +77,9 @@ const SYSTEM_PROMPT = `你是一个视觉小说游戏生成器。将用户提供
 - 不提供任何跳转字段 = 选完后继续当前故事线的下一个节点
 
 规则：
-1. 必须有一条 "main" 主线，包含所有玩家共享的开头（约10-15个节点）
+1. 必须有一条 "main" 主线，包含所有玩家共享的开头（5-8个节点）
 2. 主线末尾必须有一个 choice 节点，每个选项通过 gotoStoryline 跳转到不同的故事线
-3. 至少生成 2-3 条独立故事线（不含主线），每条有独立的名称和描述
+3. 生成 2 条独立故事线（不含主线），每条有独立的名称和描述
 4. 每条故事线是一个完整的平行故事，有自己的场景、对话、发展和结局
 5. 故事线内部也可以有 choice 节点，实现线内分支或跳转到其他故事线（汇合）
 6. 每条故事线最终必须有一个 ending 节点
@@ -93,7 +94,8 @@ const SYSTEM_PROMPT = `你是一个视觉小说游戏生成器。将用户提供
 15. characters 的 description 字段用英文描述角色外貌，如 "young woman, short black hair, blue eyes, casual clothes"
 16. storylines 的 key 用英文蛇形命名（如 chen_xia_line），name 用中文
 17. 只输出纯 JSON，不要 markdown 代码块，不要任何其他文字
-18. 每条故事线节点数不超过15个，主线不超过10个节点
+18. 每条故事线节点数不超过10个，主线不超过8个节点
+19. characters 最多3个
 19. 所有字符串值中不得使用中文引号""，只用英文双引号`;
 
 app.post('/api/fetch-url', async (req, res) => {
@@ -140,41 +142,26 @@ function parseGameData(content) {
   const m = cleaned.match(/\{[\s\S]*\}/);
   if (!m) throw new Error('无 JSON 块');
 
+  let data;
   try {
-    const data = JSON.parse(m[0]);
-    if (data.script && !data.storylines) {
-      data.storylines = { main: { name: '主线', description: '完整故事', nodes: data.script } };
-      delete data.script;
-    }
-    if (!data.storylines?.main?.nodes?.length) throw new Error('缺少主线数据');
-    return data;
+    data = JSON.parse(m[0]);
   } catch {
-    // Attempt repair
-    let fixed = m[0]
-      // Replace curly quotes that AI uses inside strings (e.g. "祝融") with escaped quotes
-      .replace(/[\u201c\u201d]/g, '\\"')
-      // Fix missing opening quote on property names: ,name": → ,"name":
-      .replace(/,\s*([a-zA-Z_][a-zA-Z0-9_]*)":/g, ',"$1":')
-      // Fix missing opening quote on string values: :"word" → :"word"
-      .replace(/"([^"]+)":\s*([a-zA-Z\u4e00-\u9fff][^",\[\]{}\n]*?)"/g, '"$1": "$2"')
-      // Remove trailing commas
-      .replace(/,\s*([}\]])/g, '$1');
-
     try {
-      const data = JSON.parse(fixed);
-      if (data.script && !data.storylines) {
-        data.storylines = { main: { name: '主线', description: '完整故事', nodes: data.script } };
-        delete data.script;
-      }
-      if (!data.storylines?.main?.nodes?.length) throw new Error('缺少主线数据');
-      return data;
+      data = JSON.parse(jsonrepair(m[0]));
     } catch (e2) {
       const pos = parseInt(e2.message.match(/position (\d+)/)?.[1] || '0');
       console.error('[parse error]', e2.message);
-      console.error('[context]', fixed.substring(Math.max(0, pos - 80), pos + 80));
+      console.error('[context]', m[0].substring(Math.max(0, pos - 80), pos + 80));
       throw e2;
     }
   }
+
+  if (data.script && !data.storylines) {
+    data.storylines = { main: { name: '主线', description: '完整故事', nodes: data.script } };
+    delete data.script;
+  }
+  if (!data.storylines?.main?.nodes?.length) throw new Error('缺少主线数据');
+  return data;
 }
 
 app.post('/api/generate', async (req, res) => {
@@ -187,7 +174,7 @@ app.post('/api/generate', async (req, res) => {
   const sendError = (msg) => { res.write('\nERROR:' + msg); res.end(); };
 
   let lastBadJson = '';
-  for (let attempt = 0; attempt < 2; attempt++) {
+  for (let attempt = 0; attempt < 3; attempt++) {
     try {
       const messages = attempt === 0
         ? [
@@ -204,7 +191,7 @@ app.post('/api/generate', async (req, res) => {
       return res.end();
     } catch (e) {
       console.error(`[attempt ${attempt + 1} failed]`, e.message);
-      if (attempt === 1) return sendError('生成失败，请重试');
+      if (attempt === 2) return sendError('生成失败，请重试');
       res.write('\n[fixing...]');
     }
   }
