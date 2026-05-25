@@ -121,18 +121,12 @@ async function callDeepSeek(messages, onChunk) {
   const resp = await fetch('https://api.deepseek.com/v1/chat/completions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${API_KEY}` },
-    body: JSON.stringify({ model: 'deepseek-v4-pro', max_tokens: 8000, stream: true, response_format: { type: 'json_object' }, messages })
+    body: JSON.stringify({ model: 'deepseek-v4-pro', max_tokens: 8000, response_format: { type: 'json_object' }, messages })
   });
   if (!resp.ok) throw new Error('AI 接口错误: ' + await resp.text());
-  let content = '';
-  const decoder = new TextDecoder();
-  for await (const chunk of resp.body) {
-    for (const line of decoder.decode(chunk).split('\n')) {
-      if (!line.startsWith('data: ') || line === 'data: [DONE]') continue;
-      try { const delta = JSON.parse(line.slice(6)).choices[0].delta.content || ''; content += delta; onChunk(); } catch {}
-    }
-  }
-  return content;
+  const data = await resp.json();
+  onChunk();
+  return data.choices[0].message.content || '';
 }
 
 function parseGameData(content) {
@@ -146,8 +140,10 @@ function parseGameData(content) {
   try {
     data = JSON.parse(m[0]);
   } catch {
+    // Fix: "...value""nextKey" → "...value"},{"nextKey"
+    const preFixed = m[0].replace(/"("(?:type|speaker|text|title|sceneKey|bgPrompt|chapter|question|gotoStoryline|id|name|color|description)":)/g, '"},{ $1');
     try {
-      data = JSON.parse(jsonrepair(m[0]));
+      data = JSON.parse(jsonrepair(preFixed));
     } catch (e2) {
       const pos = parseInt(e2.message.match(/position (\d+)/)?.[1] || '0');
       console.error('[parse error]', e2.message);
@@ -175,6 +171,8 @@ app.post('/api/generate', async (req, res) => {
 
   let lastBadJson = '';
   for (let attempt = 0; attempt < 3; attempt++) {
+    // Heartbeat to prevent Render 30s timeout
+    const heartbeat = setInterval(() => res.write('.'), 5000);
     try {
       const messages = attempt === 0
         ? [
@@ -184,12 +182,14 @@ app.post('/api/generate', async (req, res) => {
         : [
             { role: 'user', content: `以下JSON格式有误，请修复并只输出合法JSON，不要任何其他文字：\n\n${lastBadJson.substring(0, 8000)}` }
           ];
-      const content = await callDeepSeek(messages, () => res.write('.'));
+      const content = await callDeepSeek(messages, () => {});
+      clearInterval(heartbeat);
       lastBadJson = content;
       const gameData = parseGameData(content);
       res.write('\nDATA:' + JSON.stringify(gameData));
       return res.end();
     } catch (e) {
+      clearInterval(heartbeat);
       console.error(`[attempt ${attempt + 1} failed]`, e.message);
       if (attempt === 2) return sendError('生成失败，请重试');
       res.write('\n[fixing...]');
