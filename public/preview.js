@@ -153,7 +153,7 @@ function renderStory() {
   el.appendChild(wrapper);
 }
 
-// ③ 逻辑分支图（简洁版：只显示标题、choice、ending）
+// ③ 逻辑分支图（树状横向展开：从左到右，所有连线向右，折线直角）
 function renderBranch() {
   const storylines = gameData.storylines || {};
   const lines = Object.keys(storylines).length
@@ -166,106 +166,159 @@ function renderBranch() {
     return;
   }
 
+  // 布局常量
+  const NW = 100, NH = 36;   // 节点宽高（文字框）
+  const ROW_H = 60;           // 行间距
+  const COL_W = 180;          // 列间距（节点左边到下一节点左边）
+  const PAD_X = 20, PAD_Y = 20;
   const lineColors = ['#60a5fa','#34d399','#f59e0b','#f472b6','#c084fc','#fb923c'];
-  const COL_W = 240, PAD_X = 20, PAD_Y = 20, NODE_W = 200, NODE_H = 28, HEADER_H = 48, ROW_H = 56;
 
-  // 只保留 choice 和 ending 节点，记录原始索引
-  const keyNodes = {}; // keyNodes[lineId] = [{origIdx, node}]
+  // 收集每条故事线的关键节点（scene起点 + choice + ending）
+  const keyNodes = {};
   ids.forEach(id => {
-    keyNodes[id] = (lines[id].nodes || [])
-      .map((node, i) => ({ origIdx: i, node }))
-      .filter(({ node }) => node.type === 'choice' || node.type === 'ending');
+    const nodes = lines[id].nodes || [];
+    const result = [];
+    const firstScene = nodes.findIndex(n => n.type === 'scene');
+    if (firstScene >= 0) result.push({ origIdx: firstScene, node: nodes[firstScene], role: 'scene' });
+    nodes.forEach((node, i) => {
+      if (node.type === 'choice' || node.type === 'ending') result.push({ origIdx: i, node, role: node.type });
+    });
+    const seen = new Set();
+    keyNodes[id] = result.filter(k => { if (seen.has(k.origIdx)) return false; seen.add(k.origIdx); return true; });
   });
 
-  // 计算位置：pos[lineId][origIdx] = {cx, cy}
+  // 每条故事线的起始列：main从0开始，其他从1开始
+  const colStartOf = {};
+  ids.forEach((id, i) => { colStartOf[id] = i === 0 ? 0 : 1; });
+
+  // 节点坐标（节点中心）
   const pos = {};
-  ids.forEach((id, ci) => {
+  ids.forEach((id, ri) => {
     pos[id] = {};
-    const cx = PAD_X + ci * COL_W + NODE_W / 2;
-    keyNodes[id].forEach(({ origIdx }, ri) => {
-      pos[id][origIdx] = { cx, cy: PAD_Y + HEADER_H + ri * ROW_H + NODE_H / 2 };
+    const colStart = colStartOf[id];
+    const nodeCY = PAD_Y + ri * ROW_H + NH / 2;
+    keyNodes[id].forEach(({ origIdx }, ki) => {
+      pos[id][origIdx] = {
+        x: PAD_X + (colStart + ki) * COL_W + NW / 2,
+        y: nodeCY
+      };
     });
   });
 
-  const maxRows = Math.max(...ids.map(id => keyNodes[id].length));
-  const totalH = PAD_Y * 2 + HEADER_H + Math.max(maxRows, 1) * ROW_H + 20;
-  const totalW = ids.length * COL_W + PAD_X * 2;
+  const maxCol = Math.max(1, ...ids.map(id => colStartOf[id] + keyNodes[id].length));
+  const totalW = PAD_X * 2 + maxCol * COL_W + 40;
+  const totalH = PAD_Y * 2 + ids.length * ROW_H;
 
-  let svg = `<svg viewBox="0 0 ${totalW} ${totalH}" xmlns="http://www.w3.org/2000/svg" style="font-family:monospace;width:100%;overflow:visible">`;
+  let svg = `<svg xmlns="http://www.w3.org/2000/svg" style="font-family:'Courier New',monospace;display:block;background:#0f1117" width="${totalW}" height="${totalH}">`;
   svg += `<defs>
-    <marker id="arr" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7 Z" fill="${TYPE_COLOR.choice}"/></marker>
-    <marker id="arr-end" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7 Z" fill="#888"/></marker>
+    <marker id="arr" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+      <path d="M0,0 L7,3.5 L0,7 Z" fill="#888"/>
+    </marker>
+    <marker id="arr-choice" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+      <path d="M0,0 L7,3.5 L0,7 Z" fill="#f59e0b"/>
+    </marker>
   </defs>`;
 
-  // 故事线标题列头
-  ids.forEach((id, ci) => {
-    const color = lineColors[ci % lineColors.length];
-    const x = PAD_X + ci * COL_W;
-    svg += `<rect x="${x}" y="${PAD_Y}" width="${NODE_W}" height="${HEADER_H - 8}" rx="4" fill="#1a1d2e" stroke="${color}" stroke-width="2"/>`;
-    svg += `<text x="${x + NODE_W/2}" y="${PAD_Y + 20}" font-size="12" fill="${color}" font-weight="bold" text-anchor="middle">${escapeXml(lines[id].name || id)}</text>`;
-    // 泳道竖线
-    svg += `<line x1="${x + NODE_W/2}" y1="${PAD_Y + HEADER_H}" x2="${x + NODE_W/2}" y2="${totalH - PAD_Y}" stroke="${color}" stroke-width="0.5" stroke-dasharray="3,5" opacity="0.25"/>`;
-  });
+  svg += `<rect width="${totalW}" height="${totalH}" fill="#0f1117"/>`;
 
-  // 线内顺序连接线（choice → 下一个 key 节点）
-  ids.forEach(id => {
+  // ── 连接线（先画，节点覆盖在上面）──
+
+  // 1. 同行节点间水平连线（向右）
+  ids.forEach((id, ri) => {
+    const color = lineColors[ri % lineColors.length];
     const kn = keyNodes[id];
     for (let i = 0; i < kn.length - 1; i++) {
       const a = pos[id][kn[i].origIdx];
       const b = pos[id][kn[i+1].origIdx];
       if (!a || !b) continue;
-      svg += `<line x1="${a.cx}" y1="${a.cy + NODE_H/2}" x2="${b.cx}" y2="${b.cy - NODE_H/2}" stroke="#2a2d45" stroke-width="1.5"/>`;
+      // 水平直线，从左节点右边 → 右节点左边
+      svg += `<line x1="${a.x + NW/2}" y1="${a.y}" x2="${b.x - NW/2}" y2="${b.y}" stroke="${color}" stroke-width="1.5" marker-end="url(#arr)"/>`;
     }
   });
 
-  // 节点
-  ids.forEach((id, ci) => {
-    const color = lineColors[ci % lineColors.length];
-    keyNodes[id].forEach(({ origIdx, node }) => {
-      const { cx, cy } = pos[id][origIdx];
-      const isEnding = node.type === 'ending';
-      const nodeColor = isEnding ? '#888' : TYPE_COLOR.choice;
-      const x = cx - NODE_W / 2;
-      const y = cy - NODE_H / 2;
-      svg += `<rect x="${x}" y="${y}" width="${NODE_W}" height="${NODE_H}" rx="4" fill="#1a1d2e" stroke="${nodeColor}" stroke-width="1.5"/>`;
-      if (isEnding) {
-        svg += `<text x="${cx}" y="${cy + 5}" font-size="10" fill="${nodeColor}" text-anchor="middle">⬛ ${escapeXml(truncate(node.title || '结局', 20))}</text>`;
-      } else {
-        const opts = (node.options || []).map(o => o.text ? truncate(o.text, 8) : '?').join(' / ');
-        svg += `<text x="${cx}" y="${cy + 5}" font-size="10" fill="${nodeColor}" text-anchor="middle">◆ ${escapeXml(truncate(opts, 26))}</text>`;
-      }
-    });
-  });
-
-  // choice 跨故事线跳转箭头
+  // 2. 跨故事线跳转：从 choice 节点右边出发，折线向右到目标行（直角，不回头）
   ids.forEach(id => {
     keyNodes[id].forEach(({ origIdx, node }) => {
       if (node.type !== 'choice') return;
       const src = pos[id][origIdx];
       if (!src) return;
       (node.options || []).forEach(opt => {
-        const targetLineId = opt.gotoStoryline;
-        const targetNodeIdx = typeof opt.gotoNode === 'number' ? opt.gotoNode : null;
-        if (!targetLineId || !pos[targetLineId]) return;
-
-        // 找目标故事线中最近的 key 节点（>= targetNodeIdx）
-        const targetKN = keyNodes[targetLineId];
-        const match = targetKN.find(k => k.origIdx >= (targetNodeIdx ?? 0)) || targetKN[0];
+        const targetId = opt.gotoStoryline;
+        if (!targetId || !pos[targetId]) return;
+        const targetKN = keyNodes[targetId];
+        const targetNodeIdx = typeof opt.gotoNode === 'number' ? opt.gotoNode : 0;
+        const match = targetKN.find(k => k.origIdx >= targetNodeIdx) || targetKN[0];
         if (!match) return;
-        const dst = pos[targetLineId][match.origIdx];
+        const dst = pos[targetId][match.origIdx];
         if (!dst) return;
 
-        const x0 = src.cx + NODE_W/2, y0 = src.cy;
-        const x1 = dst.cx - NODE_W/2, y1 = dst.cy;
-        const mx = (x0 + x1) / 2;
-        svg += `<path d="M${x0},${y0} C${mx},${y0} ${mx},${y1} ${x1},${y1}" fill="none" stroke="${TYPE_COLOR.choice}" stroke-width="1.5" stroke-dasharray="6,3" marker-end="url(#arr)"/>`;
-        svg += `<text x="${mx}" y="${Math.min(y0,y1) - 4}" font-size="9" fill="${TYPE_COLOR.choice}" text-anchor="middle">${escapeXml(truncate(opt.text, 12))}</text>`;
+        // 出发点：choice 节点右边中点
+        const x0 = src.x + NW/2, y0 = src.y;
+        // 到达点：目标节点左边中点
+        const x1 = dst.x - NW/2, y1 = dst.y;
+
+        // 折线：右出 → 垂直到目标行 → 右进
+        // 转折 x 取两者中点（保证始终向右）
+        const tx = Math.max(x0 + 20, (x0 + x1) / 2);
+        svg += `<polyline points="${x0},${y0} ${tx},${y0} ${tx},${y1} ${x1},${y1}" fill="none" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#arr-choice)"/>`;
+
+        // 选项文字标签（贴在垂直段旁）
+        const lbl = truncate(opt.text || '', 8);
+        const lw = lbl.length * 7 + 10;
+        const ly = (y0 + y1) / 2;
+        svg += `<rect x="${tx + 3}" y="${ly - 9}" width="${lw}" height="13" rx="2" fill="#1a1400" stroke="#f59e0b" stroke-width="0.8"/>`;
+        svg += `<text x="${tx + 3 + lw/2}" y="${ly + 1}" font-size="9" fill="#f59e0b" text-anchor="middle">${escapeXml(lbl)}</text>`;
       });
     });
   });
 
+  // ── 节点 ──
+  ids.forEach((id, ri) => {
+    const color = lineColors[ri % lineColors.length];
+    const kn = keyNodes[id];
+
+    kn.forEach(({ origIdx, node, role }, ki) => {
+      const { x, y } = pos[id][origIdx];
+      const nx = x - NW/2, ny = y - NH/2;
+      const isEnding = node.type === 'ending';
+      const isChoice = node.type === 'choice';
+      const isScene = role === 'scene';
+
+      // 节点框
+      const strokeColor = isEnding ? '#f87171' : isChoice ? '#f59e0b' : color;
+      const fillColor = isEnding ? '#1a0a0a' : '#1a1d2e';
+      svg += `<rect x="${nx}" y="${ny}" width="${NW}" height="${NH}" rx="4" fill="${fillColor}" stroke="${strokeColor}" stroke-width="1.5"/>`;
+
+      // 节点文字
+      let label = '';
+      if (isEnding) label = truncate(node.title || '结局', 10);
+      else if (isChoice) label = '◆ 选择';
+      else label = truncate(node.sceneKey || node.chapter || '', 10);
+
+      svg += `<text x="${x}" y="${y + 4}" font-size="11" fill="${strokeColor}" text-anchor="middle" dominant-baseline="middle">${escapeXml(label)}</text>`;
+
+      // 行首第一个节点：在节点上方显示故事线名称
+      if (ki === 0) {
+        const lineName = lines[id].name || id;
+        svg += `<circle cx="${nx}" cy="${ny - 8}" r="4" fill="${color}"/>`;
+        svg += `<text x="${nx + 8}" y="${ny - 4}" font-size="11" fill="${color}" font-weight="bold">${escapeXml(lineName)}</text>`;
+      }
+    });
+  });
+
   svg += '</svg>';
-  document.getElementById('branch-content').innerHTML = svg;
+
+  const wrap = document.getElementById('branch-content');
+  wrap.style.cssText = 'overflow-x:auto;overflow-y:visible;width:100%';
+  wrap.innerHTML = svg;
+}
+
+// 将字符串按每行 n 个字符拆分（用于 SVG 多行文字）
+function splitText(s, n) {
+  s = s || '';
+  const result = [];
+  for (let i = 0; i < s.length; i += n) result.push(s.substring(i, i + n));
+  return result.length ? result : [''];
 }
 
 function escapeXml(s) {

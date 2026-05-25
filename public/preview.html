@@ -11,6 +11,7 @@
   <button onclick="history.back()">◀ 返回</button>
   <h1 id="preview-title">游戏预览</h1>
   <button onclick="window.print()">🖨 打印</button>
+  <button onclick="loadTestData()" style="background:none;border:1px solid #666;color:#666;font-family:inherit;padding:4px 8px;cursor:pointer;font-size:12px">测试分支图</button>
   <button id="btn-play" onclick="goPlay()">▶ 开始游玩</button>
 </div>
 
@@ -64,6 +65,13 @@
   <div id="endings-content"></div>
 </section>
 
+<script>
+function loadTestData() {
+  const d = {"title":"测试分支图","characters":[{"id":"c1","name":"主角","color":"#60a5fa","description":"test"}],"storylines":{"main":{"name":"主线","nodes":[{"type":"scene","sceneKey":"s1","bgPrompt":"test"},{"type":"choice","question":"选择路线","options":[{"text":"选A","gotoStoryline":"line_a","gotoNode":0},{"text":"选B","gotoStoryline":"line_b","gotoNode":0}]}]},"line_a":{"name":"线路A","nodes":[{"type":"scene","sceneKey":"s2","bgPrompt":"test"},{"type":"choice","question":"再次选择","options":[{"text":"选A1","gotoStoryline":"line_a1","gotoNode":0},{"text":"选A2","gotoStoryline":"line_a2","gotoNode":0}]}]},"line_b":{"name":"线路B","nodes":[{"type":"scene","sceneKey":"s3","bgPrompt":"test"},{"type":"ending","title":"B结局"}]},"line_a1":{"name":"线路A1","nodes":[{"type":"scene","sceneKey":"s4","bgPrompt":"test"},{"type":"ending","title":"A1结局"}]},"line_a2":{"name":"线路A2","nodes":[{"type":"scene","sceneKey":"s5","bgPrompt":"test"},{"type":"ending","title":"A2结局"}]}}};
+  localStorage.setItem('gamePreview', JSON.stringify(d));
+  location.reload();
+}
+</script>
 <script src="preview.js"></script>
 </body>
 </html>

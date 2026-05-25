@@ -48,7 +48,8 @@ body{font-family:'Courier New',monospace;background:var(--bg);color:var(--text);
 .type-gacha{color:#c084fc}.type-ending{color:#f87171}.type-panel{color:#94a3b8}
 
 /* Branch SVG */
-#branch-content svg{width:100%;overflow:visible}
+#branch-content{background:#0a0c14;border-radius:6px;padding:12px 0}
+#branch-content svg{display:block;overflow:visible}
 
 /* Scenes grid */
 .scenes-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px}
