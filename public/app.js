@@ -186,7 +186,7 @@ function startGame() {
   // Show cover over game view
   const cover = document.getElementById('cover-view');
   cover.classList.remove('fade-out');
-  cover.style.display = 'flex';
+  cover.classList.add('visible');
 
   // Try to use first scene bg as cover image
   const firstScene = (storylines.main?.nodes || []).find(n => n.type === 'scene');
@@ -206,7 +206,7 @@ function startGame() {
 function enterGame() {
   const cover = document.getElementById('cover-view');
   cover.classList.add('fade-out');
-  setTimeout(() => { cover.style.display = 'none'; }, 500);
+  setTimeout(() => { cover.classList.remove('visible', 'fade-out'); }, 500);
   advance();
 }
 
