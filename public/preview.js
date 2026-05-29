@@ -84,7 +84,7 @@ async function genPortrait(id, name) {
   try {
     const res = await fetch('/api/gen-portrait', {
       method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ name: name || id, id, customPrompt: promptEl?.value })
+      body: JSON.stringify({ name: name || id, id, customPrompt: promptEl?.value, style: localStorage.getItem('imageStyle') || 'pixel' })
     });
     const data = await res.json();
     if (data.b64) {
@@ -444,7 +444,7 @@ async function genBg(key) {
   try {
     const res = await fetch('/api/gen-bg', {
       method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ prompt, sceneKey: key })
+      body: JSON.stringify({ prompt, sceneKey: key, style: localStorage.getItem('imageStyle') || 'pixel' })
     });
     const data = await res.json();
     if (data.b64) {

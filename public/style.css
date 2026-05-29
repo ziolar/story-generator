@@ -47,6 +47,19 @@ textarea::placeholder{color:var(--text2)}
 .douban-bm-btn:hover{background:var(--gold);color:#000}
 .douban-hint-steps{display:flex;flex-direction:column;gap:4px;font-size:11px;color:var(--text2);
   border-top:1px solid var(--surface2);padding-top:8px;letter-spacing:.5px}
+/* ===== Style Selector ===== */
+.style-selector{width:100%;margin-bottom:16px}
+.style-label{font-size:11px;color:var(--text2);letter-spacing:2px;margin-bottom:8px}
+.style-options{display:flex;gap:6px}
+.style-opt{flex:1;background:var(--surface);border:1px solid var(--surface2);color:var(--text2);
+  padding:8px 4px;cursor:pointer;font-family:inherit;
+  display:flex;flex-direction:column;align-items:center;gap:4px;border-radius:4px;
+  transition:border-color .15s,color .15s,background .15s}
+.style-opt:hover{border-color:var(--gold);color:var(--text)}
+.style-opt.active{border-color:var(--gold);color:var(--gold);background:rgba(232,201,122,.08)}
+.style-icon{font-size:18px;line-height:1}
+.style-name{font-size:11px;letter-spacing:.5px}
+
 .btn-generate{margin-top:20px;width:100%;padding:14px;border:none;background:var(--accent);
   color:#fff;font-family:inherit;font-size:15px;letter-spacing:2px;cursor:pointer;
   box-shadow:4px 4px 0 #a01030;transition:transform .1s,box-shadow .1s;border-radius:2px}

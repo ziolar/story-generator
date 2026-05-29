@@ -32,7 +32,14 @@ const API_KEY = process.env.DEEPSEEK_API_KEY || '';
 const IMAGE_API_KEY = process.env.IMAGE_API_KEY || '';
 const IMAGE_API = 'https://app.yylx.io/v1/images/generations';
 
-const PIXEL_STYLE = 'Pixel art retro game style, 16-bit pixel art, muted palette, cinematic composition, dramatic mood, image-rendering pixelated. COMPOSITION FOR MOBILE PHONE SCREEN: vertical portrait orientation 9:16 ratio, key visual elements positioned in UPPER 60% of frame, LOWER 40% must be empty/dark/negative space reserved for dialog box overlay. ';
+const STYLE_PRESETS = {
+  pixel:     'Pixel art retro game style, 16-bit pixel art, muted palette, cinematic composition, dramatic mood, image-rendering pixelated. ',
+  anime:     'Japanese anime style illustration, vibrant colors, clean linework, cel shading, visual novel art style, detailed. ',
+  ink:       'Chinese ink wash painting style, sumi-e, monochromatic with subtle color washes, elegant brushstrokes, traditional Chinese art aesthetic. ',
+  realistic: 'Photorealistic cinematic style, dramatic lighting, high detail, film photography aesthetic, moody atmosphere. ',
+  oil:       'Oil painting style, impressionist brushstrokes, rich textures, painterly aesthetic, dramatic chiaroscuro lighting. ',
+};
+const BG_COMPOSITION = 'COMPOSITION FOR MOBILE PHONE SCREEN: vertical portrait orientation 9:16 ratio, key visual elements positioned in UPPER 60% of frame, LOWER 40% must be empty/dark/negative space reserved for dialog box overlay. ';
 
 const SYSTEM_PROMPT = `你是一个视觉小说游戏生成器。将用户提供的文本转化为视觉小说脚本。
 
@@ -208,11 +215,12 @@ app.post('/api/generate', async (req, res) => {
 });
 
 app.post('/api/gen-bg', async (req, res) => {
-  const { prompt } = req.body;
+  const { prompt, style } = req.body;
   if (!prompt) return res.status(400).json({ error: '请提供 prompt' });
   if (!IMAGE_API_KEY) return res.status(500).json({ error: '未配置 IMAGE_API_KEY 环境变量' });
 
-  const fullPrompt = PIXEL_STYLE + prompt;
+  const stylePrefix = STYLE_PRESETS[style] || STYLE_PRESETS.pixel;
+  const fullPrompt = stylePrefix + BG_COMPOSITION + prompt;
 
   for (let i = 0; i < 3; i++) {
     try {
@@ -251,11 +259,12 @@ app.post('/api/gen-bg', async (req, res) => {
 });
 
 app.post('/api/gen-portrait', async (req, res) => {
-  const { name, id, customPrompt } = req.body;
+  const { name, id, customPrompt, style } = req.body;
   if (!name) return res.status(400).json({ error: '请提供角色名' });
   if (!IMAGE_API_KEY) return res.status(500).json({ error: '未配置 IMAGE_API_KEY' });
 
-  const prompt = PIXEL_STYLE + (customPrompt || `character portrait, upper body, facing slightly left, ${name}, solo character, plain dark background, centered composition`);
+  const stylePrefix = STYLE_PRESETS[style] || STYLE_PRESETS.pixel;
+  const prompt = stylePrefix + (customPrompt || `character portrait, upper body, facing slightly left, ${name}, solo character, plain dark background, centered composition`);
 
   for (let i = 0; i < 3; i++) {
     try {

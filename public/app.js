@@ -7,6 +7,21 @@ let bgCache = {};
 let typingTimer = null;
 let sceneLocked = false;
 
+// === Image Style ===
+let selectedStyle = localStorage.getItem('imageStyle') || 'pixel';
+
+// Style selector
+document.querySelectorAll('.style-opt').forEach(btn => {
+  if (btn.dataset.style === selectedStyle) btn.classList.add('active');
+  else btn.classList.remove('active');
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.style-opt').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    selectedStyle = btn.dataset.style;
+    localStorage.setItem('imageStyle', selectedStyle);
+  });
+});
+
 // === Douban Reading bookmarklet ===
 function isDoubanRead(url) {
   return /read\.douban\.com\/reader\//i.test(url);
@@ -176,7 +191,7 @@ async function generatePortraits() {
     try {
       const res = await fetch('/api/gen-portrait', {
         method: 'POST', headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ name: c.name, id: c.id })
+        body: JSON.stringify({ name: c.name, id: c.id, style: selectedStyle })
       });
       const data = await res.json();
       if (data.b64) charMap[c.id].portrait = data.b64;
@@ -250,7 +265,7 @@ async function handleScene(node) {
     const res = await fetch('/api/gen-bg', {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ prompt: node.bgPrompt || node.sceneKey, sceneKey: node.sceneKey })
+      body: JSON.stringify({ prompt: node.bgPrompt || node.sceneKey, sceneKey: node.sceneKey, style: selectedStyle })
     });
     const data = await res.json();
     if (data.b64) {
