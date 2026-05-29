@@ -243,9 +243,13 @@ async function handleScene(node) {
     if (data.b64) {
       bgCache[node.sceneKey] = data.b64;
       setBg(bgEl, data.b64);
+    } else {
+      console.error('bg gen error:', data.error);
+      loadingEl.textContent = '图片生成失败: ' + (data.error || '未知错误');
     }
   } catch(e) {
-    console.warn('bg gen failed', e);
+    console.error('bg gen failed', e);
+    loadingEl.textContent = '图片请求失败: ' + e.message;
   }
 
   loadingEl.classList.add('hidden');
