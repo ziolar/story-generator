@@ -290,7 +290,17 @@ app.post('/api/gen-portrait', async (req, res) => {
 // === Douban import relay ===
 const importStore = {}; // token → { text, savedAt }
 
+// Allow cross-origin POST from Douban Reading (bookmarklet runs on read.douban.com)
+app.options('/api/import', (req, res) => {
+  res.set({
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'POST',
+    'Access-Control-Allow-Headers': 'Content-Type',
+  }).sendStatus(204);
+});
+
 app.post('/api/import', (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
   const { text } = req.body;
   if (!text || typeof text !== 'string') return res.status(400).json({ error: '无内容' });
   const token = crypto.randomBytes(4).toString('hex');
