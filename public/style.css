@@ -244,6 +244,11 @@ textarea::placeholder{color:var(--text2)}
   .end-card{padding:28px 20px}
   .end-title{font-size:17px}
   .gacha-card{width:140px;height:190px}
+
+  .style-options{gap:4px}
+  .style-opt{padding:6px 2px}
+  .style-icon{font-size:16px}
+  .style-name{font-size:10px}
 }
 
 @supports(padding-bottom:env(safe-area-inset-bottom)){
