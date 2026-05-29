@@ -30,7 +30,7 @@ function persistStore() {
 const PORT = process.env.PORT || 3001;
 const API_KEY = process.env.DEEPSEEK_API_KEY || '';
 const IMAGE_API_KEY = process.env.IMAGE_API_KEY || '';
-const IMAGE_API = 'https://ai.flashapi.top/v1/images/generations';
+const IMAGE_API = 'https://app.yylx.io/v1/images/generations';
 
 const PIXEL_STYLE = 'Pixel art retro game style, 16-bit pixel art, muted palette, cinematic composition, dramatic mood, image-rendering pixelated. COMPOSITION FOR MOBILE PHONE SCREEN: vertical portrait orientation 9:16 ratio, key visual elements positioned in UPPER 60% of frame, LOWER 40% must be empty/dark/negative space reserved for dialog box overlay. ';
 
