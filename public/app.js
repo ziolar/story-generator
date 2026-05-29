@@ -498,9 +498,67 @@ function showError(msg) {
 }
 function hideError() { document.getElementById('error-msg').classList.add('hidden'); }
 
+// === Share ===
+let shareToastEl = null;
+
+async function shareGame() {
+  if (!gameData) return;
+  const btn = document.querySelector('.btn-share');
+  const origText = btn.textContent;
+  btn.textContent = '保存中…'; btn.disabled = true;
+  try {
+    const res = await fetch('/api/save', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(gameData)
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    const url = location.origin + '/play/' + data.id;
+    showShareToast(url);
+  } catch(e) {
+    alert('分享失败: ' + e.message);
+  } finally {
+    btn.textContent = origText; btn.disabled = false;
+  }
+}
+
+function showShareToast(url) {
+  if (shareToastEl) shareToastEl.remove();
+  shareToastEl = document.createElement('div');
+  shareToastEl.className = 'share-toast';
+  shareToastEl.innerHTML = `
+    <span>分享链接</span>
+    <input id="share-url-input" type="text" value="${url}" readonly onclick="this.select()">
+    <button onclick="copyShareUrl('${url}')">复制</button>
+    <button class="toast-close" onclick="this.closest('.share-toast').remove()">✕</button>`;
+  document.body.appendChild(shareToastEl);
+  document.getElementById('share-url-input').select();
+}
+
+function copyShareUrl(url) {
+  navigator.clipboard.writeText(url).then(() => {
+    const btn = shareToastEl.querySelector('button');
+    btn.textContent = '已复制 ✓';
+    setTimeout(() => { btn.textContent = '复制'; }, 2000);
+  }).catch(() => {
+    document.getElementById('share-url-input').select();
+    document.execCommand('copy');
+  });
+}
+
 // Auto-start from preview page
 if (localStorage.getItem('gameAutoStart') === '1') {
   localStorage.removeItem('gameAutoStart');
   const raw = localStorage.getItem('gamePreview');
   if (raw) { gameData = JSON.parse(raw); startGame(); }
+}
+
+// Auto-start from shared URL /play/:id
+const playMatch = location.pathname.match(/^\/play\/([a-z0-9]+)$/i);
+if (playMatch) {
+  fetch('/api/load/' + playMatch[1])
+    .then(r => r.json())
+    .then(data => { if (data && data.storylines) { gameData = data; startGame(); } })
+    .catch(e => console.warn('load shared game failed', e));
 }

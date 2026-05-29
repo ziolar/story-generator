@@ -12,10 +12,20 @@ if (fs.existsSync(envPath)) {
 const express = require('express');
 const cheerio = require('cheerio');
 const path = require('path');
+const crypto = require('crypto');
 
 const app = express();
-app.use(express.json({ limit: '2mb' }));
+app.use(express.json({ limit: '10mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
+
+// In-memory game store (survives restarts via optional file persistence)
+const STORE_FILE = path.join(__dirname, 'games.json');
+let gameStore = {};
+try { gameStore = JSON.parse(fs.readFileSync(STORE_FILE, 'utf8')); } catch {}
+
+function persistStore() {
+  try { fs.writeFileSync(STORE_FILE, JSON.stringify(gameStore)); } catch {}
+}
 
 const PORT = process.env.PORT || 3001;
 const API_KEY = process.env.DEEPSEEK_API_KEY || '';
@@ -275,6 +285,28 @@ app.post('/api/gen-portrait', async (req, res) => {
       await new Promise(r => setTimeout(r, 3000));
     }
   }
+});
+
+// === Share: save game data ===
+app.post('/api/save', (req, res) => {
+  const data = req.body;
+  if (!data || !data.storylines) return res.status(400).json({ error: '无效的游戏数据' });
+  const id = crypto.randomBytes(4).toString('hex'); // 8-char hex, e.g. "a3f2c1b0"
+  gameStore[id] = { data, savedAt: Date.now() };
+  persistStore();
+  res.json({ id });
+});
+
+// === Share: load game data ===
+app.get('/api/load/:id', (req, res) => {
+  const entry = gameStore[req.params.id];
+  if (!entry) return res.status(404).json({ error: '游戏不存在或已过期' });
+  res.json(entry.data);
+});
+
+// === Share: serve game page for /play/:id ===
+app.get('/play/:id', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 app.listen(PORT, () => {

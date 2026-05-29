@@ -137,7 +137,23 @@ textarea::placeholder{color:var(--text2)}
   cursor:pointer;font-family:inherit;font-size:12px;letter-spacing:1px}
 .btn-back:hover{border-color:var(--accent2);color:var(--text)}
 .game-title{font-size:13px;font-weight:700;letter-spacing:2px;color:var(--accent2)}
-.game-chapter{margin-left:auto;font-size:11px;color:var(--text2);letter-spacing:1px}
+.game-chapter{font-size:11px;color:var(--text2);letter-spacing:1px}
+.btn-share{margin-left:auto;background:none;border:1px solid var(--surface2);color:var(--text2);
+  padding:3px 10px;cursor:pointer;font-family:inherit;font-size:11px;letter-spacing:1px;display:flex;align-items:center;gap:4px}
+.btn-share:hover{border-color:var(--accent2);color:var(--accent2)}
+
+/* ===== Share Toast ===== */
+.share-toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
+  background:var(--surface);border:2px solid var(--accent2);padding:12px 20px;
+  font-size:13px;color:var(--text);letter-spacing:.5px;z-index:50;
+  display:flex;align-items:center;gap:10px;max-width:90vw;
+  animation:toastIn .25s ease}
+@keyframes toastIn{from{opacity:0;transform:translateX(-50%) translateY(8px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+.share-toast input{background:var(--bg);border:1px solid var(--surface2);color:var(--text2);
+  padding:4px 8px;font-family:inherit;font-size:12px;width:220px;outline:none}
+.share-toast button{background:none;border:1px solid var(--accent2);color:var(--accent2);
+  padding:4px 10px;cursor:pointer;font-family:inherit;font-size:12px;white-space:nowrap}
+.share-toast .toast-close{border:none;color:var(--text2);padding:0 4px;font-size:16px}
 
 .dialog-box{padding:14px 16px 10px;min-height:80px}
 .dialog-speaker{font-size:12px;font-weight:700;letter-spacing:2px;margin-bottom:6px;color:var(--accent2)}
@@ -170,8 +186,47 @@ textarea::placeholder{color:var(--text2)}
 
 /* ===== Mobile ===== */
 @media(max-width:768px){
-  .pixel-scene{flex:0 0 42vh}
-  .dialog-box{min-height:60px}
-  .dialog-text{font-size:13px}
-  .card-inner{padding:16px}
+  /* Editor */
+  .editor-container{padding:24px 16px}
+  .logo{font-size:22px}
+  textarea{height:280px;font-size:13px}
+  .btn-generate{font-size:14px;padding:12px}
+
+  /* Game layout: scene takes ~45% of screen, dialog the rest */
+  #game-view{flex-direction:column}
+  .pixel-scene{flex:0 0 45vh;min-height:0}
+  .dialog-area{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;
+    padding-bottom:env(safe-area-inset-bottom,0px)}
+
+  /* Portrait: smaller, bottom-left so it doesn't block dialog */
+  .char-portrait{height:140px;right:auto;left:8px;bottom:4px}
+
+  /* Dialog */
+  .dialog-topbar{padding:6px 12px}
+  .game-title{font-size:12px}
+  .game-chapter{font-size:10px}
+  .dialog-box{padding:10px 12px 8px;min-height:56px}
+  .dialog-speaker{font-size:11px;margin-bottom:4px}
+  .dialog-text{font-size:13px;line-height:1.7}
+
+  /* Choices: bigger tap targets */
+  .game-choices{padding:6px 12px 8px;gap:8px}
+  .choice-btn{padding:12px 14px;font-size:13px}
+  .btn-next{margin:4px 12px 8px auto;padding:10px 18px;font-size:13px}
+
+  /* Overlays */
+  .card-inner{padding:16px;max-height:85vh}
+  .card-title{font-size:16px}
+  .card-text{font-size:12px}
+  .end-card{padding:28px 20px}
+  .end-title{font-size:17px}
+  .gacha-card{width:140px;height:190px}
+
+  /* Share button in topbar */
+  .btn-share{display:flex}
+}
+
+/* Safe area for notched phones */
+@supports(padding-bottom:env(safe-area-inset-bottom)){
+  .dialog-area{padding-bottom:max(8px,env(safe-area-inset-bottom))}
 }
