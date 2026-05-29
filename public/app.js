@@ -194,7 +194,7 @@ async function advance() {
   cursor++;
 
   hideChoices();
-  document.getElementById('btn-next').classList.add('hidden');
+  document.getElementById('tap-hint').classList.add('hidden');
 
   switch (node.type) {
     case 'scene':    await handleScene(node); break;
@@ -441,6 +441,7 @@ function hideChoices() {
   const el = document.getElementById('game-choices');
   el.innerHTML = '';
   el.classList.add('hidden');
+  document.getElementById('tap-hint').classList.add('hidden');
 }
 
 // === Card ===
@@ -528,23 +529,25 @@ function handleEnding(node) {
 
 // === Helpers ===
 function showNext() {
-  document.getElementById('btn-next').classList.remove('hidden');
+  document.getElementById('tap-hint').classList.remove('hidden');
 }
 
 // click on dialog box to skip typing or advance
 document.getElementById('dialog-box').addEventListener('click', () => {
   if (typingTimer) {
-    // skip typing — re-render full text
     clearInterval(typingTimer);
     typingTimer = null;
     const textEl = document.getElementById('dialog-text');
-    // find current node (cursor already incremented, so cursor-1)
     const nodes = storylines[currentStoryline]?.nodes || [];
     const node = nodes[cursor - 1];
     if (node && (node.type === 'narrate' || node.type === 'dialog')) {
       renderBold(textEl, node.text);
     }
     showNext();
+  } else {
+    // tap-hint visible means waiting for next
+    const hint = document.getElementById('tap-hint');
+    if (!hint.classList.contains('hidden')) advance();
   }
 });
 

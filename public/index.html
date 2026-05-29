@@ -52,11 +52,18 @@
 <!-- 游戏页 -->
 <div id="game-view" class="view">
 
-  <!-- 背景图层 -->
+  <!-- 全屏背景图层 -->
   <div id="pixel-scene" class="pixel-scene">
     <img id="scene-bg" class="scene-bg" src="" alt="">
     <div id="bg-loading" class="bg-loading hidden">生成场景图<span class="dots"></span></div>
     <img id="char-portrait" class="char-portrait hidden" src="" alt="">
+  </div>
+
+  <!-- 顶部 HUD -->
+  <div class="dialog-topbar">
+    <span id="game-title" class="game-title"></span>
+    <span id="game-chapter" class="game-chapter"></span>
+    <button class="btn-share" onclick="shareGame()" title="分享游戏">⬆ 分享</button>
   </div>
 
   <!-- 浮层插图 -->
@@ -99,19 +106,14 @@
     <button id="gacha-next" class="gacha-next hidden" onclick="closeGacha()">继续 ▶</button>
   </div>
 
-  <!-- 对话区 -->
-  <div class="dialog-area">
-    <div class="dialog-topbar">
-      <span id="game-title" class="game-title"></span>
-      <span id="game-chapter" class="game-chapter"></span>
-      <button class="btn-share" onclick="shareGame()" title="分享游戏">⬆ 分享</button>
-    </div>
+  <!-- 底部对话区（叠加在背景上） -->
+  <div class="dialog-area" id="dialog-box-area">
     <div class="dialog-box" id="dialog-box">
       <div class="dialog-speaker" id="dialog-speaker"></div>
       <div class="dialog-text" id="dialog-text"></div>
     </div>
     <div id="game-choices" class="game-choices hidden"></div>
-    <button id="btn-next" class="btn-next hidden" onclick="advance()">▶ 继续</button>
+    <div id="tap-hint" class="tap-hint hidden">▶</div>
   </div>
 
   <!-- 结局页 -->
