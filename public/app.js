@@ -7,6 +7,63 @@ let bgCache = {};
 let typingTimer = null;
 let sceneLocked = false;
 
+// === Douban Reading bookmarklet ===
+function isDoubanRead(url) {
+  return /read\.douban\.com\/reader\//i.test(url);
+}
+
+function buildBookmarklet() {
+  const origin = location.origin;
+  // Runs on the Douban Reading page (different domain), so can't use localStorage.
+  // Instead: POST text to our API, get a token, redirect with ?import=TOKEN.
+  const code = `(function(){
+    var title = (document.querySelector('.chapter-title,.article-title,h1') || {}).textContent || document.title;
+    var paras = Array.from(document.querySelectorAll('p[data-pid],.paragraph p,.story p,p'));
+    paras = paras.filter(function(p){ return p.textContent.trim().length > 5; });
+    if(!paras.length){ alert('\\u672a\\u627e\\u5230\\u6b63\\u6587\\uff0c\\u8bf7\\u786e\\u4fdd\\u7ae0\\u8282\\u5df2\\u5b8c\\u5168\\u52a0\\u8f7d\\u540e\\u518d\\u70b9\\u51fb'); return; }
+    var text = title.trim() + '\\n\\n' + paras.map(function(p){ return p.textContent.trim(); }).join('\\n\\n');
+    fetch('${origin}/api/import', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:text})})
+      .then(function(r){ return r.json(); })
+      .then(function(d){ window.open('${origin}/?import=' + d.token, '_blank') || (location.href='${origin}/?import=' + d.token); })
+      .catch(function(){ alert('\\u5bfc\\u5165\\u5931\\u8d25\\uff0c\\u8bf7\\u68c0\\u67e5\\u7f51\\u7edc'); });
+  })();`;
+  return 'javascript:' + encodeURIComponent(code);
+}
+
+function onUrlInput(val) {
+  const hint = document.getElementById('douban-hint');
+  if (isDoubanRead(val)) {
+    hint.classList.remove('hidden');
+    document.getElementById('douban-bookmarklet').href = buildBookmarklet();
+    document.getElementById('btn-fetch').disabled = true;
+  } else {
+    hint.classList.add('hidden');
+    document.getElementById('btn-fetch').disabled = false;
+  }
+}
+
+// Auto-import from Douban bookmarklet (?import=TOKEN)
+(function checkDoubanImport() {
+  const params = new URLSearchParams(location.search);
+  const token = params.get('import');
+  if (!token) return;
+  // Clean URL without reloading
+  history.replaceState(null, '', location.pathname);
+  fetch('/api/import/' + token)
+    .then(r => r.json())
+    .then(data => {
+      if (!data.text) return;
+      document.querySelectorAll('.tab')[0].click();
+      document.getElementById('story-text').value = data.text;
+      const notice = document.createElement('div');
+      notice.style.cssText = 'position:fixed;top:16px;left:50%;transform:translateX(-50%);background:#f59e0b;color:#000;padding:8px 18px;font-family:inherit;font-size:13px;z-index:99;letter-spacing:1px';
+      notice.textContent = '✓ 豆瓣阅读内容已导入';
+      document.body.appendChild(notice);
+      setTimeout(() => notice.remove(), 3000);
+    })
+    .catch(e => console.warn('import fetch failed', e));
+})();
+
 // === Tab switching ===
 document.querySelectorAll('.tab').forEach(tab => {
   tab.addEventListener('click', () => {

@@ -287,6 +287,27 @@ app.post('/api/gen-portrait', async (req, res) => {
   }
 });
 
+// === Douban import relay ===
+const importStore = {}; // token → { text, savedAt }
+
+app.post('/api/import', (req, res) => {
+  const { text } = req.body;
+  if (!text || typeof text !== 'string') return res.status(400).json({ error: '无内容' });
+  const token = crypto.randomBytes(4).toString('hex');
+  importStore[token] = { text: text.substring(0, 12000), savedAt: Date.now() };
+  // Clean up tokens older than 10 minutes
+  const cutoff = Date.now() - 10 * 60 * 1000;
+  Object.keys(importStore).forEach(k => { if (importStore[k].savedAt < cutoff) delete importStore[k]; });
+  res.json({ token });
+});
+
+app.get('/api/import/:token', (req, res) => {
+  const entry = importStore[req.params.token];
+  if (!entry) return res.status(404).json({ error: '已过期或不存在' });
+  delete importStore[req.params.token]; // one-time use
+  res.json({ text: entry.text });
+});
+
 // === Share: save game data ===
 app.post('/api/save', (req, res) => {
   const data = req.body;

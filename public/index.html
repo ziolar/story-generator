@@ -22,10 +22,24 @@
     </div>
     <div class="tab-panel" id="panel-url">
       <div class="url-row">
-        <input type="url" id="story-url" placeholder="https://example.com/article">
+        <input type="url" id="story-url" placeholder="https://example.com/article" oninput="onUrlInput(this.value)">
         <button id="btn-fetch" onclick="fetchUrl()">抓取</button>
       </div>
       <div id="url-preview" class="url-preview hidden"></div>
+      <!-- 豆瓣阅读专用提示 -->
+      <div id="douban-hint" class="douban-hint hidden">
+        <div class="douban-hint-title">📖 豆瓣阅读需要书签工具</div>
+        <div class="douban-hint-body">
+          豆瓣阅读内容需要登录后才能访问，无法直接抓取。<br>
+          请将下方按钮拖到浏览器书签栏，然后在豆瓣阅读页面点击它，内容会自动导入。
+        </div>
+        <a id="douban-bookmarklet" class="douban-bm-btn" href="#" title="拖到书签栏">📥 导入到故事引擎</a>
+        <div class="douban-hint-steps">
+          <span>① 拖拽上方按钮到书签栏</span>
+          <span>② 打开豆瓣阅读章节页面</span>
+          <span>③ 点击书签，内容自动填入</span>
+        </div>
+      </div>
     </div>
     <button id="btn-generate" class="btn-generate" onclick="generate()">
       <span class="btn-text">生成游戏</span>
