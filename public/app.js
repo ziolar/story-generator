@@ -603,7 +603,7 @@ function restartGame() {
   // Show cover again on restart
   const cover = document.getElementById('cover-view');
   cover.classList.remove('fade-out');
-  cover.style.display = 'flex';
+  cover.classList.add('visible');
   cover.addEventListener('click', enterGame, { once: true });
 }
 
