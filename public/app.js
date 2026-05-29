@@ -168,7 +168,10 @@ function startGame() {
 async function generatePortraits() {
   const chars = gameData.characters || [];
   for (const c of chars) {
-    // 预览页已生成过，直接复用
+    // 预览页已生成过，从 sessionStorage 读取
+    const cached = sessionStorage.getItem('portrait_' + c.id);
+    if (cached) { charMap[c.id].portrait = cached; continue; }
+    // 兼容旧格式（直接存了 b64）
     if (c.portrait) { charMap[c.id].portrait = c.portrait; continue; }
     try {
       const res = await fetch('/api/gen-portrait', {
@@ -222,7 +225,17 @@ async function handleScene(node) {
     return;
   }
 
-  // 预览页已生成过，直接复用
+  // 预览页已生成过，从 sessionStorage 读取
+  if (node.bgReady) {
+    const cached = sessionStorage.getItem('scene_' + node.sceneKey);
+    if (cached) {
+      bgCache[node.sceneKey] = cached;
+      setBg(bgEl, cached);
+      advance();
+      return;
+    }
+  }
+  // 兼容旧格式（直接存了 b64）
   if (node.bgCache) {
     bgCache[node.sceneKey] = node.bgCache;
     setBg(bgEl, node.bgCache);

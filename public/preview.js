@@ -8,6 +8,16 @@ const RARITY_LABEL = { good:'好结局', normal:'普通', bad:'坏结局', hidde
 
 let gameData = null;
 
+// 安全写入 localStorage（图片不存入，避免超限）
+function saveGameDataSafe() {
+  try {
+    localStorage.setItem('gamePreview', JSON.stringify(gameData));
+  } catch(e) {
+    // 超限时忽略，图片已在 sessionStorage
+    console.warn('localStorage save skipped:', e.message);
+  }
+}
+
 function goPlay() {
   localStorage.setItem('gameAutoStart', '1');
   window.location.href = '/';
@@ -82,11 +92,13 @@ async function genPortrait(id, name) {
       if (!img) { img = document.createElement('img'); img.id = 'pimg-' + id; ph?.replaceWith(img); }
       img.src = data.b64;
       if (st) st.textContent = '✓ 已生成';
-      // 存回 gameData，游戏启动时直接复用
+      // 图片存 sessionStorage，避免 localStorage 超限
+      sessionStorage.setItem('portrait_' + id, data.b64);
+      // gameData 只记录已生成标记，不存 b64
       const char = (gameData.characters || []).find(c => c.id === id);
       if (char) {
-        char.portrait = data.b64;
-        localStorage.setItem('gamePreview', JSON.stringify(gameData));
+        char.portraitReady = true;
+        saveGameDataSafe();
       }
     } else {
       if (st) st.textContent = '生成失败';
@@ -444,10 +456,12 @@ async function genBg(key) {
       }
       img.src = data.b64;
       if (st) st.textContent = '✓ 已生成';
-      // 存回 gameData 所有同 sceneKey 的 scene 节点，游戏启动时直接复用
+      // 图片存 sessionStorage，避免 localStorage 超限
+      sessionStorage.setItem('scene_' + key, data.b64);
+      // gameData 只记录已生成标记
       const allNodes = Object.values(gameData.storylines || {}).flatMap(l => l.nodes || []);
-      allNodes.filter(n => n.type === 'scene' && n.sceneKey === key).forEach(n => n.bgCache = data.b64);
-      localStorage.setItem('gamePreview', JSON.stringify(gameData));
+      allNodes.filter(n => n.type === 'scene' && n.sceneKey === key).forEach(n => n.bgReady = true);
+      saveGameDataSafe();
     } else {
       if (st) st.textContent = '生成失败';
     }
