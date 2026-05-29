@@ -131,6 +131,7 @@ async function generate() {
     const data = JSON.parse(dataLine.slice(5));
     if (!data.storylines && !data.script) throw new Error('生成数据格式异常，请重试');
     gameData = data;
+    await autoSaveGame(); // save immediately and update URL
     showPostGenButtons();
   } catch(e) { showError(e.message); }
   finally {
@@ -626,12 +627,11 @@ function hideError() { document.getElementById('error-msg').classList.add('hidde
 
 // === Share ===
 let shareToastEl = null;
+let currentGameId = null; // set after auto-save
 
-async function shareGame() {
+// Auto-save game and update URL to /play/slug-xxxx
+async function autoSaveGame() {
   if (!gameData) return;
-  const btn = document.querySelector('.btn-share');
-  const origText = btn.textContent;
-  btn.textContent = '保存中…'; btn.disabled = true;
   try {
     const res = await fetch('/api/save', {
       method: 'POST',
@@ -639,9 +639,28 @@ async function shareGame() {
       body: JSON.stringify(gameData)
     });
     const data = await res.json();
-    if (data.error) throw new Error(data.error);
-    const url = location.origin + '/play/' + data.id;
-    showShareToast(url);
+    if (data.id) {
+      currentGameId = data.id;
+      history.replaceState(null, '', '/play/' + data.id);
+    }
+  } catch(e) {
+    console.warn('auto-save failed', e);
+  }
+}
+
+async function shareGame() {
+  if (!gameData) return;
+  // If already saved, just show the current URL
+  if (currentGameId) {
+    showShareToast(location.origin + '/play/' + currentGameId);
+    return;
+  }
+  const btn = document.querySelector('.btn-share');
+  const origText = btn.textContent;
+  btn.textContent = '保存中…'; btn.disabled = true;
+  try {
+    await autoSaveGame();
+    if (currentGameId) showShareToast(location.origin + '/play/' + currentGameId);
   } catch(e) {
     alert('分享失败: ' + e.message);
   } finally {
@@ -677,12 +696,16 @@ function copyShareUrl(url) {
 if (localStorage.getItem('gameAutoStart') === '1') {
   localStorage.removeItem('gameAutoStart');
   const raw = localStorage.getItem('gamePreview');
-  if (raw) { gameData = JSON.parse(raw); startGame(); }
+  if (raw) {
+    gameData = JSON.parse(raw);
+    autoSaveGame().then(() => startGame());
+  }
 }
 
 // Auto-start from shared URL /play/:id
-const playMatch = location.pathname.match(/^\/play\/([a-z0-9]+)$/i);
+const playMatch = location.pathname.match(/^\/play\/([a-z0-9-]+)$/i);
 if (playMatch) {
+  currentGameId = playMatch[1];
   fetch('/api/load/' + playMatch[1])
     .then(r => r.json())
     .then(data => { if (data && data.storylines) { gameData = data; startGame(); } })

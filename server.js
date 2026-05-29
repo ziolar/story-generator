@@ -32,6 +32,19 @@ const API_KEY = process.env.DEEPSEEK_API_KEY || '';
 const IMAGE_API_KEY = process.env.IMAGE_API_KEY || '';
 const IMAGE_API = 'https://app.yylx.io/v1/images/generations';
 
+const { pinyin } = require('pinyin-pro');
+
+function titleToSlug(title) {
+  const hasChinese = /[\u4e00-\u9fff]/.test(title);
+  if (!hasChinese) {
+    return title.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 16) || 'story';
+  }
+  const initials = pinyin(title, { pattern: 'initial', toneType: 'none', separator: '' });
+  const full = pinyin(title, { toneType: 'none', separator: '' });
+  const base = initials.replace(/[^a-z]/gi, '').length >= 3 ? initials : full;
+  return base.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 16) || 'story';
+}
+
 const STYLE_PRESETS = {
   pixel:     'Pixel art retro game style, 16-bit pixel art, muted palette, cinematic composition, dramatic mood, image-rendering pixelated. ',
   anime:     'Japanese anime style illustration, vibrant colors, clean linework, cel shading, visual novel art style, detailed. ',
@@ -331,7 +344,9 @@ app.get('/api/import/:token', (req, res) => {
 app.post('/api/save', (req, res) => {
   const data = req.body;
   if (!data || !data.storylines) return res.status(400).json({ error: '无效的游戏数据' });
-  const id = crypto.randomBytes(4).toString('hex'); // 8-char hex, e.g. "a3f2c1b0"
+  const slug = titleToSlug(data.title || 'story');
+  const suffix = crypto.randomBytes(2).toString('hex'); // 4 chars
+  const id = slug + '-' + suffix;
   gameStore[id] = { data, savedAt: Date.now() };
   persistStore();
   res.json({ id });
