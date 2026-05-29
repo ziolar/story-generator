@@ -5,15 +5,36 @@
   --border:rgba(232,201,122,.25);
 }
 body{font-family:'PingFang SC','Hiragino Sans GB',system-ui,sans-serif;
-  background:var(--bg);color:var(--text);
-  height:100vh;height:100dvh;overflow:hidden}
-.view{display:none;height:100vh;height:100dvh}
+  background:#000;color:var(--text);
+  height:100vh;height:100dvh;overflow:hidden;
+  display:flex;justify-content:center;align-items:center}
+
+/* ===== Phone Frame Container ===== */
+#app-shell{
+  position:relative;
+  width:100%;height:100dvh;
+  max-width:420px;
+  background:var(--bg);
+  overflow:hidden;
+  box-shadow:0 0 60px rgba(0,0,0,.8);
+}
+@media(min-width:481px){
+  #app-shell{
+    height:100dvh;
+    max-height:100dvh;
+    aspect-ratio:9/16;
+    width:auto;
+    max-width:min(420px,56.25dvh);
+  }
+}
+
+.view{display:none;height:100%;width:100%}
 .view.active{display:flex;flex-direction:column}
 .hidden{display:none!important}
 
 /* ===== Editor ===== */
-#editor-view{align-items:center;justify-content:center;overflow-y:auto}
-.editor-container{max-width:600px;width:100%;padding:40px 24px;display:flex;flex-direction:column;align-items:center}
+#editor-view{align-items:center;justify-content:center;overflow-y:auto;height:100%}
+.editor-container{max-width:420px;width:100%;padding:40px 24px;display:flex;flex-direction:column;align-items:center}
 .logo{font-size:28px;font-weight:700;letter-spacing:4px;color:var(--gold);
   text-shadow:3px 3px 0 var(--accent);margin-bottom:8px}
 .subtitle{color:var(--text2);font-size:13px;margin-bottom:28px;text-align:center;letter-spacing:1px}
@@ -71,7 +92,7 @@ textarea::placeholder{color:var(--text2)}
 .error{color:var(--accent);font-size:12px;margin-top:10px;text-align:center;letter-spacing:1px}
 
 /* ===== Game Layout — full-screen immersive ===== */
-#game-view{position:relative;background:var(--bg)}
+#game-view{position:relative;background:var(--bg);height:100%}
 
 /* Full-screen scene */
 .pixel-scene{position:absolute;inset:0;overflow:hidden;background:#0a0806}
@@ -250,6 +271,36 @@ textarea::placeholder{color:var(--text2)}
   .style-icon{font-size:16px}
   .style-name{font-size:10px}
 }
+
+/* ===== Cover Screen ===== */
+#cover-view{
+  position:absolute;inset:0;z-index:50;
+  display:flex;flex-direction:column;align-items:center;justify-content:flex-end;
+  padding-bottom:max(48px,env(safe-area-inset-bottom,0px) + 48px);
+  background:var(--bg);
+  transition:opacity .5s ease;
+}
+#cover-view.fade-out{opacity:0;pointer-events:none}
+.cover-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.55}
+.cover-vignette{position:absolute;inset:0;
+  background:linear-gradient(to top,rgba(10,8,6,1) 0%,rgba(10,8,6,.4) 50%,rgba(10,8,6,.6) 100%)}
+.cover-body{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;width:100%;padding:0 28px}
+.cover-label{font-size:10px;letter-spacing:4px;color:var(--gold);opacity:.7;margin-bottom:12px}
+.cover-title{font-size:clamp(28px,8vw,38px);font-weight:700;letter-spacing:.12em;
+  color:var(--text);text-align:center;line-height:1.2;
+  text-shadow:0 4px 20px rgba(0,0,0,.8);margin-bottom:8px}
+.cover-subtitle{font-size:13px;color:var(--text2);letter-spacing:.08em;text-align:center;
+  line-height:1.6;margin-bottom:36px;max-width:280px}
+.cover-btn{width:100%;max-width:280px;padding:15px;border:1px solid var(--gold);
+  background:rgba(232,201,122,.12);color:var(--gold);
+  font-family:inherit;font-size:15px;letter-spacing:3px;cursor:pointer;
+  backdrop-filter:blur(8px);transition:background .2s,transform .1s;border-radius:2px}
+.cover-btn:hover{background:rgba(232,201,122,.22)}
+.cover-btn:active{transform:scale(.98)}
+.cover-tap{font-size:11px;color:var(--text2);letter-spacing:2px;margin-top:16px;
+  animation:blink 1.5s ease infinite}
+@keyframes coverIn{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+.cover-body{animation:coverIn .8s ease .2s both}
 
 @supports(padding-bottom:env(safe-area-inset-bottom)){
   .dialog-area{padding-bottom:max(8px,env(safe-area-inset-bottom))}

@@ -7,6 +7,7 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
+<div id="app-shell">
 
 <!-- 输入页 -->
 <div id="editor-view" class="view active">
@@ -154,6 +155,19 @@
         <button onclick="restartGame()">重新开始</button>
         <button onclick="backToEditor()">返回编辑</button>
       </div>
+    </div>
+  </div>
+
+  <!-- 封面页 -->
+  <div id="cover-view">
+    <img id="cover-bg" class="cover-bg" src="" alt="">
+    <div class="cover-vignette"></div>
+    <div class="cover-body">
+      <div class="cover-label">互动视觉小说</div>
+      <div id="cover-title" class="cover-title">故事引擎</div>
+      <div id="cover-subtitle" class="cover-subtitle"></div>
+      <button class="cover-btn" onclick="enterGame()">开始游戏</button>
+      <div class="cover-tap">点击任意处进入</div>
     </div>
   </div>
 </div>

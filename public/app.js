@@ -173,10 +173,40 @@ function startGame() {
   currentStoryline = 'main';
   cursor = 0;
   bgCache = {};
-  document.getElementById('game-title').textContent = gameData.title || '互动故事';
+
+  // Show cover screen
+  const title = gameData.title || '互动故事';
+  document.getElementById('game-title').textContent = title;
+  document.getElementById('cover-title').textContent = title;
+  document.getElementById('cover-subtitle').textContent = gameData.tagline || gameData.description || '';
+
   document.getElementById('editor-view').classList.remove('active');
   document.getElementById('game-view').classList.add('active');
+
+  // Show cover over game view
+  const cover = document.getElementById('cover-view');
+  cover.classList.remove('fade-out');
+  cover.style.display = 'flex';
+
+  // Try to use first scene bg as cover image
+  const firstScene = (storylines.main?.nodes || []).find(n => n.type === 'scene');
+  if (firstScene) {
+    const cached = firstScene.bgReady ? sessionStorage.getItem('scene_' + firstScene.sceneKey) : null;
+    if (cached) {
+      document.getElementById('cover-bg').src = cached;
+    }
+  }
+
+  // Tap anywhere on cover to enter
+  cover.addEventListener('click', enterGame, { once: true });
+
   generatePortraits();
+}
+
+function enterGame() {
+  const cover = document.getElementById('cover-view');
+  cover.classList.add('fade-out');
+  setTimeout(() => { cover.style.display = 'none'; }, 500);
   advance();
 }
 
@@ -570,7 +600,11 @@ function restartGame() {
   document.getElementById('game-end').classList.add('hidden');
   currentStoryline = 'main';
   cursor = 0;
-  advance();
+  // Show cover again on restart
+  const cover = document.getElementById('cover-view');
+  cover.classList.remove('fade-out');
+  cover.style.display = 'flex';
+  cover.addEventListener('click', enterGame, { once: true });
 }
 
 function backToEditor() {
