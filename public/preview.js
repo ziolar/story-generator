@@ -79,9 +79,9 @@ async function genPortrait(id, name) {
   const ph = document.getElementById('pph-' + id);
   const promptEl = document.getElementById('pprompt-' + id);
 
-  // 已有缓存，直接显示（sessionStorage 优先，outline.js 可能已生成）
+  // 已有缓存，直接显示（IndexedDB 优先，outline.js 可能已生成）
   const char = (gameData.characters || []).find(c => c.id === id);
-  const ssCached = sessionStorage.getItem('portrait_' + id);
+  const ssCached = ImgCache.getSync('portrait_' + id);
   if (ssCached || char?.portrait) {
     const src = ssCached || char.portrait;
     let img = document.getElementById('pimg-' + id);
@@ -101,8 +101,8 @@ async function genPortrait(id, name) {
       if (!img) { img = document.createElement('img'); img.id = 'pimg-' + id; ph?.replaceWith(img); }
       img.src = data.b64;
       if (st) st.textContent = '✓ 已生成';
-      // 图片存 sessionStorage，避免 localStorage 超限
-      sessionStorage.setItem('portrait_' + id, data.b64);
+      // 图片存 IndexedDB，避免 sessionStorage 超限
+      ImgCache.set('portrait_' + id, data.b64);
       // gameData 只记录已生成标记，不存 b64
       const char = (gameData.characters || []).find(c => c.id === id);
       if (char) {
@@ -465,8 +465,8 @@ async function genBg(key) {
       }
       img.src = data.b64;
       if (st) st.textContent = '✓ 已生成';
-      // 图片存 sessionStorage，避免 localStorage 超限
-      sessionStorage.setItem('scene_' + key, data.b64);
+      // 图片存 IndexedDB，避免 sessionStorage 超限
+      ImgCache.set('scene_' + key, data.b64);
       // gameData 只记录已生成标记
       const allNodes = Object.values(gameData.storylines || {}).flatMap(l => l.nodes || []);
       allNodes.filter(n => n.type === 'scene' && n.sceneKey === key).forEach(n => n.bgReady = true);
@@ -543,4 +543,4 @@ function renderEndings() {
   });
 }
 
-init();
+ImgCache.init().then(init);

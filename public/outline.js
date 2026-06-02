@@ -1,6 +1,7 @@
 let outlineData = null;
 
-function init() {
+async function init() {
+  await ImgCache.init();
   const raw = localStorage.getItem('storyOutline');
   if (!raw) {
     document.body.innerHTML = '<p style="padding:40px;color:#888;font-family:system-ui">无大纲数据，请先生成大纲</p>';
@@ -107,7 +108,7 @@ function renderCharacters() {
     card.className = 'char-card';
     card.id = 'char-' + ci;
 
-    const cachedPortrait = sessionStorage.getItem('portrait_' + (c.id || c.name));
+    const cachedPortrait = ImgCache.getSync('portrait_' + (c.id || c.name));
 
     card.innerHTML = `
       <div class="char-card-header">
@@ -184,7 +185,7 @@ async function genPortraitPreview(ci) {
       // Update preview
       preview.innerHTML = `<img src="${data.b64}" alt="">`;
       st.textContent = '✓ 已生成';
-      sessionStorage.setItem('portrait_' + id, data.b64);
+      ImgCache.set('portrait_' + id, data.b64);
     } else {
       st.textContent = '生成失败: ' + (data.error || '未知');
     }
@@ -269,7 +270,7 @@ async function genStorylines() {
     // Preserve any portraits already generated in this session
     (gameData.characters || []).forEach(gc => {
       const id = gc.id || gc.name;
-      const cached = sessionStorage.getItem('portrait_' + id);
+      const cached = ImgCache.getSync('portrait_' + id);
       if (cached) gc.portraitCached = true;
     });
 

@@ -186,7 +186,7 @@ function startGame() {
   // Try to use first scene bg as cover image
   const firstScene = (storylines.main?.nodes || []).find(n => n.type === 'scene');
   if (firstScene) {
-    const cached = sessionStorage.getItem('scene_' + firstScene.sceneKey);
+    const cached = ImgCache.getSync('scene_' + firstScene.sceneKey);
     if (cached) {
       document.getElementById('cover-bg').src = cached;
     }
@@ -208,8 +208,8 @@ function enterGame() {
 async function generatePortraits() {
   const chars = gameData.characters || [];
   for (const c of chars) {
-    // Check sessionStorage first (set by outline.js or preview.js)
-    const cached = sessionStorage.getItem('portrait_' + c.id);
+    // Check IndexedDB cache first (set by outline.js or preview.js)
+    const cached = ImgCache.getSync('portrait_' + c.id);
     if (cached) { charMap[c.id].portrait = cached; continue; }
     // 兼容旧格式（直接存了 b64）
     if (c.portrait) { charMap[c.id].portrait = c.portrait; continue; }
@@ -221,7 +221,7 @@ async function generatePortraits() {
       const data = await res.json();
       if (data.b64) {
         charMap[c.id].portrait = data.b64;
-        sessionStorage.setItem('portrait_' + c.id, data.b64);
+        ImgCache.set('portrait_' + c.id, data.b64);
       }
     } catch(e) { console.warn('portrait gen failed', c.id, e); }
   }
@@ -268,9 +268,9 @@ async function handleScene(node) {
     return;
   }
 
-  // Check sessionStorage first (set by preview.js or previous session)
+  // Check IndexedDB cache first (set by preview.js or previous session)
   const ssKey = 'scene_' + node.sceneKey;
-  const ssCached = sessionStorage.getItem(ssKey);
+  const ssCached = ImgCache.getSync(ssKey);
   if (ssCached) {
     bgCache[node.sceneKey] = ssCached;
     setBg(bgEl, ssCached);
@@ -297,6 +297,7 @@ async function handleScene(node) {
     const data = await res.json();
     if (data.b64) {
       bgCache[node.sceneKey] = data.b64;
+      ImgCache.set(ssKey, data.b64);
       setBg(bgEl, data.b64);
     } else {
       console.error('bg gen error:', data.error);
@@ -696,35 +697,37 @@ function copyShareUrl(url) {
   });
 }
 
-// Auto-start from preview page
-if (localStorage.getItem('gameAutoStart') === '1') {
-  localStorage.removeItem('gameAutoStart');
-  const raw = localStorage.getItem('gamePreview');
-  if (raw) {
-    gameData = JSON.parse(raw);
-    autoSaveGame().then(() => startGame());
+// Init image cache, then auto-start if needed
+ImgCache.init().then(() => {
+  // Auto-start from preview page
+  if (localStorage.getItem('gameAutoStart') === '1') {
+    localStorage.removeItem('gameAutoStart');
+    const raw = localStorage.getItem('gamePreview');
+    if (raw) {
+      gameData = JSON.parse(raw);
+      autoSaveGame().then(() => startGame());
+    }
   }
-}
 
-// Auto-start from shared URL /play/:id
-const playMatch = location.pathname.match(/^\/play\/([a-z0-9-]+)$/i);
-if (playMatch) {
-  currentGameId = playMatch[1];
-  fetch('/api/load/' + playMatch[1])
-    .then(r => r.json())
-    .then(data => {
-      if (data && data.storylines) {
-        gameData = data;
-        startGame();
-      } else {
-        // Game not found (server restarted or link expired)
+  // Auto-start from shared URL /play/:id
+  const playMatch = location.pathname.match(/^\/play\/([a-z0-9-]+)$/i);
+  if (playMatch) {
+    currentGameId = playMatch[1];
+    fetch('/api/load/' + playMatch[1])
+      .then(r => r.json())
+      .then(data => {
+        if (data && data.storylines) {
+          gameData = data;
+          startGame();
+        } else {
+          history.replaceState(null, '', '/');
+          showError('游戏链接已过期，请重新生成');
+        }
+      })
+      .catch(e => {
         history.replaceState(null, '', '/');
-        showError('游戏链接已过期，请重新生成');
-      }
-    })
-    .catch(e => {
-      history.replaceState(null, '', '/');
-      showError('加载失败，请重试');
-      console.warn('load shared game failed', e);
-    });
-}
+        showError('加载失败，请重试');
+        console.warn('load shared game failed', e);
+      });
+  }
+});
