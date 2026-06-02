@@ -347,18 +347,24 @@ function handleDialog(node) {
     textEl.style.fontStyle = 'normal';
     textEl.style.color = '#f4f4f4';
     if (char && char.portrait) {
+      // Only flash in the portrait when the speaker changes
+      const prevSpeaker = portraitEl.dataset.speaker;
+      const speakerChanged = prevSpeaker !== node.speaker;
       portraitEl.src = char.portrait;
-      portraitEl.classList.remove('hidden');
-      // Re-trigger animation on each new dialog line
-      portraitEl.style.animation = 'none';
-      requestAnimationFrame(() => { portraitEl.style.animation = ''; });
-      // Sync portrait bottom with dialog area height
-      const dialogArea = document.getElementById('dialog-box-area');
-      if (dialogArea) {
-        document.getElementById('game-view').style.setProperty('--dialog-h', dialogArea.offsetHeight + 'px');
+      portraitEl.dataset.speaker = node.speaker;
+      if (speakerChanged) {
+        portraitEl.classList.remove('hidden');
+        portraitEl.style.animation = 'none';
+        requestAnimationFrame(() => { portraitEl.style.animation = ''; });
+        // Sync portrait bottom with dialog area height
+        const dialogArea = document.getElementById('dialog-box-area');
+        if (dialogArea) {
+          document.getElementById('game-view').style.setProperty('--dialog-h', dialogArea.offsetHeight + 'px');
+        }
       }
     } else {
       portraitEl.classList.add('hidden');
+      portraitEl.dataset.speaker = '';
     }
   }
   typeText(textEl, node.text, () => showNext());
