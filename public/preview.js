@@ -20,7 +20,13 @@ function saveGameDataSafe() {
 
 function goPlay() {
   localStorage.setItem('gameAutoStart', '1');
-  window.location.href = '/';
+  // If we already have a saved game ID in the URL, go directly to it
+  const match = location.pathname.match(/^\/play\/([a-z0-9-]+)$/i);
+  if (match) {
+    window.location.href = '/play/' + match[1];
+  } else {
+    window.location.href = '/';
+  }
 }
 
 function init() {

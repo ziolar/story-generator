@@ -340,6 +340,34 @@ app.get('/api/import/:token', (req, res) => {
   res.json({ text: entry.text });
 });
 
+// === Games list ===
+app.get('/api/games', (req, res) => {
+  const list = Object.entries(gameStore)
+    .map(([id, entry]) => ({
+      id,
+      title: entry.data?.title || '未命名故事',
+      savedAt: entry.savedAt || 0,
+      characterCount: (entry.data?.characters || []).length,
+      storylineCount: Object.keys(entry.data?.storylines || {}).length,
+    }))
+    .sort((a, b) => b.savedAt - a.savedAt)
+    .slice(0, 100);
+  res.json(list);
+});
+
+app.delete('/api/games/:id', (req, res) => {
+  const id = req.params.id;
+  if (!gameStore[id]) return res.status(404).json({ error: '不存在' });
+  delete gameStore[id];
+  persistStore();
+  res.json({ ok: true });
+});
+
+// === Games list page ===
+app.get('/games', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'games.html'));
+});
+
 // === Share: save game data ===
 app.post('/api/save', (req, res) => {
   const data = req.body;

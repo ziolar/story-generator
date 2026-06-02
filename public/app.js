@@ -708,6 +708,19 @@ if (playMatch) {
   currentGameId = playMatch[1];
   fetch('/api/load/' + playMatch[1])
     .then(r => r.json())
-    .then(data => { if (data && data.storylines) { gameData = data; startGame(); } })
-    .catch(e => console.warn('load shared game failed', e));
+    .then(data => {
+      if (data && data.storylines) {
+        gameData = data;
+        startGame();
+      } else {
+        // Game not found (server restarted or link expired)
+        history.replaceState(null, '', '/');
+        showError('游戏链接已过期，请重新生成');
+      }
+    })
+    .catch(e => {
+      history.replaceState(null, '', '/');
+      showError('加载失败，请重试');
+      console.warn('load shared game failed', e);
+    });
 }
