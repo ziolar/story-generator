@@ -55,6 +55,41 @@ const STYLE_PRESETS = {
 };
 const BG_COMPOSITION = 'COMPOSITION FOR MOBILE PHONE SCREEN: vertical portrait orientation 9:16 ratio, key visual elements positioned in UPPER 60% of frame, LOWER 40% must be empty/dark/negative space reserved for dialog box overlay. ';
 
+const OUTLINE_PROMPT = `你是一个视觉小说编剧。根据用户提供的文本，生成详细的故事大纲和人物档案。
+
+输出严格的 JSON，格式如下：
+{
+  "title": "故事标题",
+  "chapters": [
+    {
+      "id": 1,
+      "title": "第一章：章节名",
+      "summary": "章节摘要（50字以内）",
+      "plotPoints": ["情节点1", "情节点2", "情节点3", "情节点4", "情节点5", "情节点6", "情节点7"]
+    }
+  ],
+  "characters": [
+    {
+      "id": "c1",
+      "name": "姓名",
+      "gender": "性别",
+      "era": "年代/时代背景",
+      "personality": "性格特点（3-5个关键词）",
+      "appearance": "外貌描述（中文，50字以内）",
+      "background": "人物小传（100字以内，包含出身、经历、动机）",
+      "portraitPrompt": "立绘提示词（中文，描述角色外貌、风格、表情、服装，用于AI绘图）"
+    }
+  ]
+}
+
+规则：
+1. 至少生成10章，每章必须有7-8个情节点
+2. 每个情节点是一个具体的剧情动作、对话要点或情感转折
+3. 从原文提取所有主要人物，不超过5个
+4. portraitPrompt 用中文撰写，描述具体外貌细节，便于 AI 生成立绘
+5. 只输出纯 JSON，不要 markdown 代码块，不要任何其他文字
+6. 所有字符串值中不得使用中文引号""，只用英文双引号`;
+
 const SYSTEM_PROMPT = `你是一个视觉小说游戏生成器。将用户提供的文本转化为视觉小说脚本。
 
 【核心概念】
@@ -128,6 +163,124 @@ const SYSTEM_PROMPT = `你是一个视觉小说游戏生成器。将用户提供
 18. 每条故事线节点数不超过10个，主线不超过8个节点
 19. characters 最多3个
 19. 所有字符串值中不得使用中文引号""，只用英文双引号`;
+
+app.post('/api/gen-outline', async (req, res) => {
+  const { text, title, characters } = req.body;
+  if (!text) return res.status(400).json({ error: '请提供文本内容' });
+  if (!API_KEY) return res.status(500).json({ error: '未配置 DEEPSEEK_API_KEY 环境变量' });
+
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  const sendError = (msg) => { res.write('\nERROR:' + msg); res.end(); };
+
+  let userHints = '';
+  if (title) userHints += `\n故事标题请使用：「${title}」`;
+  if (characters && characters.length) {
+    const charList = characters.map(c => `- ${c.name}${c.description ? '：' + c.description : ''}`).join('\n');
+    userHints += `\n以下是用户指定的主要角色，请优先在人物档案中体现：\n${charList}`;
+  }
+
+  let lastBadJson = '';
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const heartbeat = setInterval(() => res.write('.'), 5000);
+    try {
+      const messages = attempt === 0
+        ? [
+            { role: 'system', content: OUTLINE_PROMPT },
+            { role: 'user', content: `请根据以下内容生成故事大纲和人物档案：\n\n${text.substring(0, 6000)}${userHints}` }
+          ]
+        : [
+            { role: 'user', content: `以下JSON格式有误，请修复并只输出合法JSON：\n\n${lastBadJson.substring(0, 8000)}` }
+          ];
+      const content = await callDeepSeek(messages, () => {});
+      clearInterval(heartbeat);
+      lastBadJson = content;
+      const cleaned = content.replace(/```json\n?/gi, '').replace(/```\n?/g, '').replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, '');
+      const m = cleaned.match(/\{[\s\S]*\}/);
+      if (!m) throw new Error('无 JSON 块');
+      let data;
+      try { data = JSON.parse(m[0]); } catch { data = JSON.parse(require('jsonrepair').jsonrepair(m[0])); }
+      if (!data.chapters?.length) throw new Error('缺少 chapters 数据');
+      res.write('\nDATA:' + JSON.stringify(data));
+      return res.end();
+    } catch (e) {
+      clearInterval(heartbeat);
+      console.error(`[gen-outline attempt ${attempt + 1} failed]`, e.message);
+      if (attempt === 2) return sendError('大纲生成失败，请重试');
+      res.write('\n[fixing...]');
+    }
+  }
+});
+
+app.post('/api/gen-storylines', async (req, res) => {
+  const { outline, characters } = req.body;
+  if (!outline || !outline.chapters) return res.status(400).json({ error: '请提供大纲数据' });
+  if (!API_KEY) return res.status(500).json({ error: '未配置 DEEPSEEK_API_KEY 环境变量' });
+
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  const sendError = (msg) => { res.write('\nERROR:' + msg); res.end(); };
+
+  // Format outline as natural language for the AI
+  const chapterLines = (outline.chapters || []).map(ch => {
+    const pts = (ch.plotPoints || []).map((p, i) => `  ${i + 1}. ${p}`).join('\n');
+    return `【${ch.title}】\n概述：${ch.summary || ''}\n${pts}`;
+  }).join('\n\n');
+
+  const charHints = (characters || []).map(c =>
+    `- ${c.name}（${c.gender || ''}，${c.era || ''}）：${c.personality || ''}`
+  ).join('\n');
+
+  // Build English description hint for portrait generation
+  const charDescHints = (characters || []).map(c =>
+    `- ${c.name} (id: ${c.id || c.name}): ${c.appearance || c.background || ''}`
+  ).join('\n');
+
+  const userMsg = `请根据以下故事大纲生成视觉小说游戏脚本。
+
+【故事标题】
+${outline.title || ''}
+
+【故事大纲】
+${chapterLines}
+
+【主要人物】
+${charHints}
+
+【人物外貌参考（用于生成 characters[].description 英文描述）】
+${charDescHints}
+
+要求：
+- 主线剧情严格按照大纲内容展开，覆盖所有章节的核心情节
+- 支线和平行故事线可在大纲基础上自主发挥
+- characters 字段中每个角色的 description 用英文描述外貌，参考上方人物外貌参考`;
+
+  let lastBadJson = '';
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const heartbeat = setInterval(() => res.write('.'), 5000);
+    try {
+      const messages = attempt === 0
+        ? [
+            { role: 'system', content: SYSTEM_PROMPT },
+            { role: 'user', content: userMsg }
+          ]
+        : [
+            { role: 'user', content: `以下JSON格式有误，请修复并只输出合法JSON：\n\n${lastBadJson.substring(0, 8000)}` }
+          ];
+      const content = await callDeepSeek(messages, () => {});
+      clearInterval(heartbeat);
+      lastBadJson = content;
+      const gameData = parseGameData(content);
+      res.write('\nDATA:' + JSON.stringify(gameData));
+      return res.end();
+    } catch (e) {
+      clearInterval(heartbeat);
+      console.error(`[gen-storylines attempt ${attempt + 1} failed]`, e.message);
+      if (attempt === 2) return sendError('故事线生成失败，请重试');
+      res.write('\n[fixing...]');
+    }
+  }
+});
 
 app.post('/api/fetch-url', async (req, res) => {
   const { url } = req.body;
@@ -399,6 +552,15 @@ app.get('/api/load/:id', (req, res) => {
 // === Share: serve game page for /play/:id ===
 app.get('/play/:id', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// === Outline editor page ===
+app.get('/outline', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'outline.html'));
+});
+
+app.get('/outline.html', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'outline.html'));
 });
 
 app.listen(PORT, () => {

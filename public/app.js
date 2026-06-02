@@ -109,7 +109,7 @@ async function fetchUrl() {
   finally { btn.textContent = '抓取'; btn.disabled = false; }
 }
 
-// === Generate ===
+// === Generate (Phase 1: outline) ===
 async function generate() {
   const text = document.getElementById('story-text').value.trim();
   if (!text) return showError('请先输入文本内容');
@@ -131,7 +131,7 @@ async function generate() {
   btn.querySelector('.btn-loading').classList.remove('hidden');
   hideError();
   try {
-    const res = await fetch('/api/generate', {
+    const res = await fetch('/api/gen-outline', {
       method: 'POST', headers: {'Content-Type':'application/json'},
       body: JSON.stringify({ text, title: titleInput || undefined, characters: customChars.length ? customChars : undefined })
     });
@@ -141,34 +141,16 @@ async function generate() {
     if (errLine) throw new Error(errLine.slice(6));
     if (!dataLine) throw new Error('生成失败，请重试');
     const data = JSON.parse(dataLine.slice(5));
-    if (!data.storylines && !data.script) throw new Error('生成数据格式异常，请重试');
-    gameData = data;
-    await autoSaveGame(); // save immediately and update URL
-    showPostGenButtons();
+    if (!data.chapters?.length) throw new Error('大纲数据格式异常，请重试');
+    localStorage.setItem('storyOutline', JSON.stringify(data));
+    localStorage.setItem('imageStyle', selectedStyle);
+    window.location.href = '/outline.html';
   } catch(e) { showError(e.message); }
   finally {
     btn.disabled = false;
     btn.querySelector('.btn-text').classList.remove('hidden');
     btn.querySelector('.btn-loading').classList.add('hidden');
   }
-}
-
-// === Post-generation buttons ===
-function showPostGenButtons() {
-  const container = document.getElementById('post-gen-btns');
-  if (container) { container.classList.remove('hidden'); return; }
-  const el = document.createElement('div');
-  el.id = 'post-gen-btns';
-  el.style.cssText = 'display:flex;gap:12px;margin-top:16px;width:100%';
-  el.innerHTML = `
-    <button onclick="goPreview()" style="flex:1;padding:12px;border:2px solid #f5a623;background:none;color:#f5a623;font-family:inherit;font-size:14px;cursor:pointer;letter-spacing:1px">🔍 预览检查</button>
-    <button onclick="startGame()" style="flex:1;padding:12px;border:2px solid #e94560;background:none;color:#e94560;font-family:inherit;font-size:14px;cursor:pointer;letter-spacing:1px">▶ 直接游玩</button>`;
-  document.querySelector('.editor-container').appendChild(el);
-}
-
-function goPreview() {
-  localStorage.setItem('gamePreview', JSON.stringify(gameData));
-  window.location.href = '/preview.html';
 }
 
 // === Game Start ===
