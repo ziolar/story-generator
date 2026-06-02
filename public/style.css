@@ -137,7 +137,9 @@ textarea::placeholder{color:var(--text2)}
 .char-portrait{position:absolute;right:16px;bottom:calc(var(--dialog-h,200px) + 8px);
   height:28vh;max-height:140px;width:auto;
   z-index:9;transition:opacity .25s;animation:fadeInPortrait .25s ease;
-  filter:drop-shadow(0 4px 16px rgba(0,0,0,.7))}
+  filter:drop-shadow(0 4px 16px rgba(0,0,0,.7));
+  -webkit-mask-image:radial-gradient(ellipse 88% 92% at 50% 40%,#000 55%,transparent 100%);
+  mask-image:radial-gradient(ellipse 88% 92% at 50% 40%,#000 55%,transparent 100%)}
 @keyframes fadeInPortrait{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
 
 /* ===== Top HUD ===== */
