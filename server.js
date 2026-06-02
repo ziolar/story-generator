@@ -29,8 +29,9 @@ function persistStore() {
 
 const PORT = process.env.PORT || 3001;
 const API_KEY = process.env.DEEPSEEK_API_KEY || '';
-const IMAGE_API_KEY = process.env.IMAGE_API_KEY || '';
-const IMAGE_API = 'https://app.yylx.io/v1/images/generations';
+const IMAGE_API_KEY = process.env.IMAGE_API_KEY || 'ark-87a9d492-59ff-4d06-8653-c84fb1806025-825f2';
+const IMAGE_API = 'https://ark.cn-beijing.volces.com/api/v3/images/generations';
+const IMAGE_MODEL = 'doubao-seedream-5-0-260128';
 
 const { pinyin } = require('pinyin-pro');
 
@@ -242,7 +243,7 @@ app.post('/api/gen-bg', async (req, res) => {
       const resp = await fetch(IMAGE_API, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${IMAGE_API_KEY}` },
-        body: JSON.stringify({ model: 'gpt-image-2', prompt: fullPrompt, size: '1024x1536', quality: 'medium', n: 1 }),
+        body: JSON.stringify({ model: IMAGE_MODEL, prompt: fullPrompt, size: '2K', response_format: 'url', sequential_image_generation: 'disabled', stream: false, watermark: false }),
         signal: controller.signal
       });
       clearTimeout(timer);
@@ -286,7 +287,7 @@ app.post('/api/gen-portrait', async (req, res) => {
       const resp = await fetch(IMAGE_API, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${IMAGE_API_KEY}` },
-        body: JSON.stringify({ model: 'gpt-image-2', prompt, size: '1024x1536', quality: 'low', n: 1 }),
+        body: JSON.stringify({ model: IMAGE_MODEL, prompt, size: '2K', response_format: 'url', sequential_image_generation: 'disabled', stream: false, watermark: false }),
         signal: controller.signal
       });
       clearTimeout(timer);
