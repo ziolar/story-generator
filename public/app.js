@@ -348,6 +348,14 @@ function handleDialog(node) {
     if (char && char.portrait) {
       portraitEl.src = char.portrait;
       portraitEl.classList.remove('hidden');
+      // Re-trigger animation on each new dialog line
+      portraitEl.style.animation = 'none';
+      requestAnimationFrame(() => { portraitEl.style.animation = ''; });
+      // Sync portrait bottom with dialog area height
+      const dialogArea = document.getElementById('dialog-box-area');
+      if (dialogArea) {
+        document.getElementById('game-view').style.setProperty('--dialog-h', dialogArea.offsetHeight + 'px');
+      }
     } else {
       portraitEl.classList.add('hidden');
     }

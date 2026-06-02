@@ -133,12 +133,12 @@ textarea::placeholder{color:var(--text2)}
 .bg-loading{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
   background:rgba(10,8,6,.85);font-size:13px;color:var(--text2);letter-spacing:2px;z-index:2}
 
-/* Character portrait — centered, just above dialog box */
-.char-portrait{position:absolute;left:50%;bottom:calc(var(--dialog-h,200px) + 4px);
-  transform:translateX(-50%);height:28vh;max-height:140px;width:auto;
+/* Character portrait — right side, just above dialog box */
+.char-portrait{position:absolute;right:16px;bottom:calc(var(--dialog-h,200px) + 8px);
+  height:28vh;max-height:140px;width:auto;
   z-index:9;transition:opacity .25s;animation:fadeInPortrait .25s ease;
   filter:drop-shadow(0 4px 16px rgba(0,0,0,.7))}
-@keyframes fadeInPortrait{from{opacity:0;transform:translateX(-50%) translateY(10px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+@keyframes fadeInPortrait{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
 
 /* ===== Top HUD ===== */
 .dialog-topbar{position:absolute;top:0;left:0;right:0;z-index:10;
