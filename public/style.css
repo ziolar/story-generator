@@ -81,6 +81,25 @@ textarea::placeholder{color:var(--text2)}
 .style-icon{font-size:18px;line-height:1}
 .style-name{font-size:11px;letter-spacing:.5px}
 
+/* ===== Field Groups (title + characters) ===== */
+.field-group{width:100%;margin-bottom:14px}
+.field-label{font-size:11px;color:var(--text2);letter-spacing:2px;margin-bottom:6px;display:flex;align-items:center;gap:6px}
+.field-optional{font-size:10px;color:rgba(240,236,228,.35);letter-spacing:.5px}
+.field-input{width:100%;background:var(--surface);border:1px solid var(--surface2);
+  padding:10px 14px;color:var(--text);font-family:inherit;font-size:14px;outline:none;
+  border-radius:2px}
+.field-input:focus{border-color:var(--gold)}
+.field-input::placeholder{color:var(--text2)}
+.char-row{display:flex;gap:6px;margin-bottom:6px}
+.char-name{width:88px;flex-shrink:0;background:var(--surface);border:1px solid var(--surface2);
+  padding:8px 10px;color:var(--text);font-family:inherit;font-size:13px;outline:none;border-radius:2px}
+.char-name:focus{border-color:var(--gold)}
+.char-name::placeholder{color:var(--text2)}
+.char-desc{flex:1;background:var(--surface);border:1px solid var(--surface2);
+  padding:8px 10px;color:var(--text);font-family:inherit;font-size:13px;outline:none;border-radius:2px}
+.char-desc:focus{border-color:var(--gold)}
+.char-desc::placeholder{color:var(--text2)}
+
 .btn-generate{margin-top:20px;width:100%;padding:14px;border:none;background:var(--accent);
   color:#fff;font-family:inherit;font-size:15px;letter-spacing:2px;cursor:pointer;
   box-shadow:4px 4px 0 #a01030;transition:transform .1s,box-shadow .1s;border-radius:2px}

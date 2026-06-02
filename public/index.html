@@ -43,6 +43,31 @@
       </div>
     </div>
 
+    <!-- 故事标题 -->
+    <div class="field-group">
+      <div class="field-label">故事标题 <span class="field-optional">选填</span></div>
+      <input type="text" id="story-title" class="field-input" placeholder="留空则由 AI 自动命名" maxlength="30">
+    </div>
+
+    <!-- 主要角色 -->
+    <div class="field-group">
+      <div class="field-label">主要角色 <span class="field-optional">选填，最多 3 个</span></div>
+      <div id="characters-list">
+        <div class="char-row">
+          <input type="text" class="char-name" placeholder="姓名" maxlength="10">
+          <input type="text" class="char-desc" placeholder="描述（外貌、性格…）" maxlength="60">
+        </div>
+        <div class="char-row">
+          <input type="text" class="char-name" placeholder="姓名" maxlength="10">
+          <input type="text" class="char-desc" placeholder="描述（外貌、性格…）" maxlength="60">
+        </div>
+        <div class="char-row">
+          <input type="text" class="char-name" placeholder="姓名" maxlength="10">
+          <input type="text" class="char-desc" placeholder="描述（外貌、性格…）" maxlength="60">
+        </div>
+      </div>
+    </div>
+
     <div class="input-tabs">
       <button class="tab active" data-tab="text">输入文本</button>
       <button class="tab" data-tab="url">粘贴链接</button>

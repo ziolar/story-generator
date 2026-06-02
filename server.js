@@ -192,13 +192,21 @@ function parseGameData(content) {
 }
 
 app.post('/api/generate', async (req, res) => {
-  const { text } = req.body;
+  const { text, title, characters } = req.body;
   if (!text) return res.status(400).json({ error: '请提供文本内容' });
   if (!API_KEY) return res.status(500).json({ error: '未配置 DEEPSEEK_API_KEY 环境变量' });
 
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   const sendError = (msg) => { res.write('\nERROR:' + msg); res.end(); };
+
+  // Build optional hints for title and characters
+  let userHints = '';
+  if (title) userHints += `\n故事标题请使用：「${title}」`;
+  if (characters && characters.length) {
+    const charList = characters.map(c => `- ${c.name}${c.description ? '：' + c.description : ''}`).join('\n');
+    userHints += `\n主要角色（请在 characters 中优先使用这些角色，description 字段用英文外貌描述）：\n${charList}`;
+  }
 
   let lastBadJson = '';
   for (let attempt = 0; attempt < 3; attempt++) {
@@ -208,7 +216,7 @@ app.post('/api/generate', async (req, res) => {
       const messages = attempt === 0
         ? [
             { role: 'system', content: SYSTEM_PROMPT },
-            { role: 'user', content: `请根据以下内容生成视觉小说游戏：\n\n${text.substring(0, 6000)}` }
+            { role: 'user', content: `请根据以下内容生成视觉小说游戏：\n\n${text.substring(0, 6000)}${userHints}` }
           ]
         : [
             { role: 'user', content: `以下JSON格式有误，请修复并只输出合法JSON，不要任何其他文字：\n\n${lastBadJson.substring(0, 8000)}` }

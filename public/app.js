@@ -114,6 +114,17 @@ async function generate() {
   const text = document.getElementById('story-text').value.trim();
   if (!text) return showError('请先输入文本内容');
   if (text.length < 20) return showError('内容太短');
+
+  // Collect optional title and characters
+  const titleInput = (document.getElementById('story-title')?.value || '').trim();
+  const charRows = document.querySelectorAll('.char-row');
+  const customChars = [];
+  charRows.forEach(row => {
+    const name = row.querySelector('.char-name')?.value.trim();
+    const desc = row.querySelector('.char-desc')?.value.trim();
+    if (name) customChars.push({ name, description: desc || '' });
+  });
+
   const btn = document.getElementById('btn-generate');
   btn.disabled = true;
   btn.querySelector('.btn-text').classList.add('hidden');
@@ -121,7 +132,8 @@ async function generate() {
   hideError();
   try {
     const res = await fetch('/api/generate', {
-      method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({text})
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ text, title: titleInput || undefined, characters: customChars.length ? customChars : undefined })
     });
     const raw = await res.text();
     const dataLine = raw.split('\n').find(l => l.startsWith('DATA:'));
