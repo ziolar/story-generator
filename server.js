@@ -13,23 +13,105 @@ const express = require('express');
 const cheerio = require('cheerio');
 const path = require('path');
 const crypto = require('crypto');
+const { Pool } = require('pg');
 
 const app = express();
 app.use(express.json({ limit: '10mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// In-memory game store (survives restarts via optional file persistence)
-const STORE_FILE = path.join(__dirname, 'games.json');
-let gameStore = {};
-try { gameStore = JSON.parse(fs.readFileSync(STORE_FILE, 'utf8')); } catch {}
-
-function persistStore() {
-  try { fs.writeFileSync(STORE_FILE, JSON.stringify(gameStore)); } catch {}
-}
-
 const PORT = process.env.PORT || 3001;
 const API_KEY = process.env.DEEPSEEK_API_KEY || '';
-const IMAGE_API_KEY = process.env.IMAGE_API_KEY || 'ark-87a9d492-59ff-4d06-8653-c84fb1806025-825f2';
+const IMAGE_API_KEY = process.env.IMAGE_API_KEY || '';
+
+// === PostgreSQL game store ===
+// Falls back to in-memory if DATABASE_URL is not set (local dev)
+let db = null;
+let gameStore = {}; // in-memory fallback
+
+if (process.env.DATABASE_URL) {
+  db = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: { rejectUnauthorized: false },
+  });
+  // Init table on startup
+  db.query(`
+    CREATE TABLE IF NOT EXISTS games (
+      id TEXT PRIMARY KEY,
+      data JSONB NOT NULL,
+      saved_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `).then(() => {
+    console.log('[db] games table ready');
+  }).catch(e => {
+    console.error('[db] init error:', e.message);
+  });
+} else {
+  console.log('[db] DATABASE_URL not set — using in-memory store');
+  // Load from local file as fallback
+  const STORE_FILE = path.join(__dirname, 'games.json');
+  try { gameStore = JSON.parse(fs.readFileSync(STORE_FILE, 'utf8')); } catch {}
+}
+
+async function dbSave(id, data) {
+  if (db) {
+    await db.query(
+      `INSERT INTO games (id, data, saved_at) VALUES ($1, $2, NOW())
+       ON CONFLICT (id) DO UPDATE SET data = $2, saved_at = NOW()`,
+      [id, data]
+    );
+  } else {
+    gameStore[id] = { data, savedAt: Date.now() };
+    try { fs.writeFileSync(path.join(__dirname, 'games.json'), JSON.stringify(gameStore)); } catch {}
+  }
+}
+
+async function dbLoad(id) {
+  if (db) {
+    const r = await db.query('SELECT data, saved_at FROM games WHERE id = $1', [id]);
+    if (!r.rows.length) return null;
+    return { data: r.rows[0].data, savedAt: new Date(r.rows[0].saved_at).getTime() };
+  }
+  return gameStore[id] || null;
+}
+
+async function dbDelete(id) {
+  if (db) {
+    const r = await db.query('DELETE FROM games WHERE id = $1 RETURNING id', [id]);
+    return r.rowCount > 0;
+  }
+  if (!gameStore[id]) return false;
+  delete gameStore[id];
+  try { fs.writeFileSync(path.join(__dirname, 'games.json'), JSON.stringify(gameStore)); } catch {}
+  return true;
+}
+
+async function dbList() {
+  if (db) {
+    const r = await db.query(
+      `SELECT id, data->>'title' AS title, saved_at,
+              jsonb_array_length(COALESCE(data->'characters','[]'::jsonb)) AS char_count,
+              (SELECT COUNT(*) FROM jsonb_object_keys(COALESCE(data->'storylines','{}':jsonb))) AS storyline_count
+       FROM games ORDER BY saved_at DESC LIMIT 100`
+    );
+    return r.rows.map(row => ({
+      id: row.id,
+      title: row.title || '未命名故事',
+      savedAt: new Date(row.saved_at).getTime(),
+      characterCount: parseInt(row.char_count) || 0,
+      storylineCount: parseInt(row.storyline_count) || 0,
+    }));
+  }
+  return Object.entries(gameStore)
+    .map(([id, entry]) => ({
+      id,
+      title: entry.data?.title || '未命名故事',
+      savedAt: entry.savedAt || 0,
+      characterCount: (entry.data?.characters || []).length,
+      storylineCount: Object.keys(entry.data?.storylines || {}).length,
+    }))
+    .sort((a, b) => b.savedAt - a.savedAt)
+    .slice(0, 100);
+}
 const IMAGE_API = 'https://ark.cn-beijing.volces.com/api/v3/images/generations';
 const IMAGE_MODEL = 'doubao-seedream-5-0-260128';
 
@@ -560,26 +642,23 @@ app.get('/api/import/:token', (req, res) => {
 });
 
 // === Games list ===
-app.get('/api/games', (req, res) => {
-  const list = Object.entries(gameStore)
-    .map(([id, entry]) => ({
-      id,
-      title: entry.data?.title || '未命名故事',
-      savedAt: entry.savedAt || 0,
-      characterCount: (entry.data?.characters || []).length,
-      storylineCount: Object.keys(entry.data?.storylines || {}).length,
-    }))
-    .sort((a, b) => b.savedAt - a.savedAt)
-    .slice(0, 100);
-  res.json(list);
+app.get('/api/games', async (req, res) => {
+  try {
+    const list = await dbList();
+    res.json(list);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
-app.delete('/api/games/:id', (req, res) => {
-  const id = req.params.id;
-  if (!gameStore[id]) return res.status(404).json({ error: '不存在' });
-  delete gameStore[id];
-  persistStore();
-  res.json({ ok: true });
+app.delete('/api/games/:id', async (req, res) => {
+  try {
+    const found = await dbDelete(req.params.id);
+    if (!found) return res.status(404).json({ error: '不存在' });
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 // === Games list page ===
@@ -588,22 +667,29 @@ app.get('/games', (req, res) => {
 });
 
 // === Share: save game data ===
-app.post('/api/save', (req, res) => {
+app.post('/api/save', async (req, res) => {
   const data = req.body;
   if (!data || !data.storylines) return res.status(400).json({ error: '无效的游戏数据' });
   const slug = titleToSlug(data.title || 'story');
-  const suffix = crypto.randomBytes(2).toString('hex'); // 4 chars
+  const suffix = crypto.randomBytes(2).toString('hex');
   const id = slug + '-' + suffix;
-  gameStore[id] = { data, savedAt: Date.now() };
-  persistStore();
-  res.json({ id });
+  try {
+    await dbSave(id, data);
+    res.json({ id });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 // === Share: load game data ===
-app.get('/api/load/:id', (req, res) => {
-  const entry = gameStore[req.params.id];
-  if (!entry) return res.status(404).json({ error: '游戏不存在或已过期' });
-  res.json(entry.data);
+app.get('/api/load/:id', async (req, res) => {
+  try {
+    const entry = await dbLoad(req.params.id);
+    if (!entry) return res.status(404).json({ error: '游戏不存在或已过期' });
+    res.json(entry.data);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 // === Share: serve game page for /play/:id ===
