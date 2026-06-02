@@ -33,7 +33,11 @@ body{font-family:'PingFang SC','Hiragino Sans GB',system-ui,sans-serif;
 .hidden{display:none!important}
 
 /* ===== Editor ===== */
-#editor-view{align-items:center;justify-content:center;overflow-y:auto;height:100%}
+#editor-view{align-items:center;justify-content:center;overflow-y:scroll;height:100%;scrollbar-width:thin;scrollbar-color:var(--surface2) transparent}
+#editor-view::-webkit-scrollbar{width:4px}
+#editor-view::-webkit-scrollbar-track{background:transparent}
+#editor-view::-webkit-scrollbar-thumb{background:var(--surface2);border-radius:2px}
+#editor-view::-webkit-scrollbar-thumb:hover{background:var(--gold)}
 .editor-container{max-width:420px;width:100%;padding:40px 24px;display:flex;flex-direction:column;align-items:center}
 .logo{font-size:28px;font-weight:700;letter-spacing:4px;color:var(--gold);
   text-shadow:3px 3px 0 var(--accent);margin-bottom:8px}
