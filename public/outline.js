@@ -251,6 +251,28 @@ async function genStorylines() {
     if (!dataLine) throw new Error('生成失败，请重试');
     const gameData = JSON.parse(dataLine.slice(5));
     if (!gameData.storylines) throw new Error('生成数据格式异常，请重试');
+
+    // Merge outline character data (portraitPrompt, background, appearance) into game characters
+    const outlineChars = outline.characters || [];
+    (gameData.characters || []).forEach(gc => {
+      const oc = outlineChars.find(c => c.id === gc.id || c.name === gc.name);
+      if (oc) {
+        if (oc.portraitPrompt) gc.portraitPrompt = oc.portraitPrompt;
+        if (oc.background)     gc.background     = oc.background;
+        if (oc.appearance)     gc.appearance     = oc.appearance;
+        if (oc.gender)         gc.gender         = oc.gender;
+        if (oc.era)            gc.era            = oc.era;
+        if (oc.personality)    gc.personality    = oc.personality;
+      }
+    });
+
+    // Preserve any portraits already generated in this session
+    (gameData.characters || []).forEach(gc => {
+      const id = gc.id || gc.name;
+      const cached = sessionStorage.getItem('portrait_' + id);
+      if (cached) gc.portraitCached = true;
+    });
+
     localStorage.setItem('gamePreview', JSON.stringify(gameData));
     window.location.href = '/preview.html';
   } catch(e) {

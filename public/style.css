@@ -133,10 +133,12 @@ textarea::placeholder{color:var(--text2)}
 .bg-loading{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
   background:rgba(10,8,6,.85);font-size:13px;color:var(--text2);letter-spacing:2px;z-index:2}
 
-/* Character portrait — right side, above dialog */
-.char-portrait{position:absolute;right:12px;bottom:38%;height:52vh;max-height:220px;width:auto;
-  z-index:3;transition:opacity .3s;animation:fadeInPortrait .3s ease}
-@keyframes fadeInPortrait{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+/* Character portrait — centered, just above dialog box */
+.char-portrait{position:absolute;left:50%;bottom:calc(var(--dialog-h,200px) + 4px);
+  transform:translateX(-50%);height:28vh;max-height:140px;width:auto;
+  z-index:9;transition:opacity .25s;animation:fadeInPortrait .25s ease;
+  filter:drop-shadow(0 4px 16px rgba(0,0,0,.7))}
+@keyframes fadeInPortrait{from{opacity:0;transform:translateX(-50%) translateY(10px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
 
 /* ===== Top HUD ===== */
 .dialog-topbar{position:absolute;top:0;left:0;right:0;z-index:10;
@@ -274,7 +276,7 @@ textarea::placeholder{color:var(--text2)}
   textarea{height:280px;font-size:13px}
   .btn-generate{font-size:14px;padding:12px}
 
-  .char-portrait{height:44vh;max-height:180px;right:8px;bottom:36%}
+  .char-portrait{height:22vh;max-height:110px}
   .dialog-box{padding:12px 14px 6px;min-height:60px}
   .dialog-speaker{font-size:11px}
   .dialog-text{font-size:14px}

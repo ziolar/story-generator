@@ -52,7 +52,8 @@ async function renderPortraits() {
   if (!chars.length) { el.innerHTML = '<p style="color:var(--text2);font-size:13px">无角色定义</p>'; return; }
 
   chars.forEach(c => {
-    const defaultPrompt = `${c.name}, character portrait, upper body${c.description ? ', ' + c.description : ''}`;
+    // Prefer Chinese portraitPrompt from outline (set in outline.js merge step)
+    const defaultPrompt = c.portraitPrompt || `${c.name}, character portrait, upper body${c.description ? ', ' + c.description : ''}`;
     const card = document.createElement('div');
     card.className = 'scene-card';
     card.innerHTML = `<div class="scene-placeholder" id="pph-${c.id}">等待生成</div>
@@ -78,12 +79,14 @@ async function genPortrait(id, name) {
   const ph = document.getElementById('pph-' + id);
   const promptEl = document.getElementById('pprompt-' + id);
 
-  // 已有缓存，直接显示
+  // 已有缓存，直接显示（sessionStorage 优先，outline.js 可能已生成）
   const char = (gameData.characters || []).find(c => c.id === id);
-  if (char?.portrait) {
+  const ssCached = sessionStorage.getItem('portrait_' + id);
+  if (ssCached || char?.portrait) {
+    const src = ssCached || char.portrait;
     let img = document.getElementById('pimg-' + id);
     if (!img) { img = document.createElement('img'); img.id = 'pimg-' + id; ph?.replaceWith(img); }
-    img.src = char.portrait;
+    img.src = src;
     if (st) st.textContent = '✓ 已生成';
     return;
   }

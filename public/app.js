@@ -186,7 +186,7 @@ function startGame() {
   // Try to use first scene bg as cover image
   const firstScene = (storylines.main?.nodes || []).find(n => n.type === 'scene');
   if (firstScene) {
-    const cached = firstScene.bgReady ? sessionStorage.getItem('scene_' + firstScene.sceneKey) : null;
+    const cached = sessionStorage.getItem('scene_' + firstScene.sceneKey);
     if (cached) {
       document.getElementById('cover-bg').src = cached;
     }
@@ -208,7 +208,7 @@ function enterGame() {
 async function generatePortraits() {
   const chars = gameData.characters || [];
   for (const c of chars) {
-    // 预览页已生成过，从 sessionStorage 读取
+    // Check sessionStorage first (set by outline.js or preview.js)
     const cached = sessionStorage.getItem('portrait_' + c.id);
     if (cached) { charMap[c.id].portrait = cached; continue; }
     // 兼容旧格式（直接存了 b64）
@@ -216,10 +216,13 @@ async function generatePortraits() {
     try {
       const res = await fetch('/api/gen-portrait', {
         method: 'POST', headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ name: c.name, id: c.id, style: selectedStyle })
+        body: JSON.stringify({ name: c.name, id: c.id, customPrompt: c.portraitPrompt || undefined, style: selectedStyle })
       });
       const data = await res.json();
-      if (data.b64) charMap[c.id].portrait = data.b64;
+      if (data.b64) {
+        charMap[c.id].portrait = data.b64;
+        sessionStorage.setItem('portrait_' + c.id, data.b64);
+      }
     } catch(e) { console.warn('portrait gen failed', c.id, e); }
   }
 }
@@ -265,15 +268,14 @@ async function handleScene(node) {
     return;
   }
 
-  // 预览页已生成过，从 sessionStorage 读取
-  if (node.bgReady) {
-    const cached = sessionStorage.getItem('scene_' + node.sceneKey);
-    if (cached) {
-      bgCache[node.sceneKey] = cached;
-      setBg(bgEl, cached);
-      advance();
-      return;
-    }
+  // Check sessionStorage first (set by preview.js or previous session)
+  const ssKey = 'scene_' + node.sceneKey;
+  const ssCached = sessionStorage.getItem(ssKey);
+  if (ssCached) {
+    bgCache[node.sceneKey] = ssCached;
+    setBg(bgEl, ssCached);
+    advance();
+    return;
   }
   // 兼容旧格式（直接存了 b64）
   if (node.bgCache) {

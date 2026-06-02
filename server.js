@@ -164,6 +164,61 @@ const SYSTEM_PROMPT = `你是一个视觉小说游戏生成器。将用户提供
 19. characters 最多3个
 19. 所有字符串值中不得使用中文引号""，只用英文双引号`;
 
+// ===== Storylines-from-outline prompt (大规模，按大纲生成) =====
+const STORYLINES_FROM_OUTLINE_PROMPT = `你是一个视觉小说游戏生成器。根据用户提供的【完整故事大纲】生成视觉小说脚本。
+
+【核心结构】
+- storylines.main（主线）：完整覆盖大纲所有章节，每个情节点对应1-2个 dialog/narrate 节点；每章末尾（最后一个情节点处）插入一个 choice 节点，分支到该章的分支线和平行线
+- 每章生成两条独立故事线：
+  - branch_ch{N}：选择A的走向（该情节点的另一种可能，5-8节点）
+  - parallel_ch{N}：选择B的整章平行路线（完全不同的发展，8-12节点）
+- 每条 branch/parallel 故事线最终必须有 ending 节点
+- 主线最后一章结束后进入主线结局（ending 节点）
+
+【规模要求】
+- 主线节点数 = 各章情节点数之和（每个情节点1-2节点），不设上限
+- 故事线总数 ≥ 章节数 × 2（每章一条branch + 一条parallel）
+- 单条 branch/parallel 故事线5-12个节点
+
+【JSON格式】（与原来完全相同）
+{
+  "title": "故事标题",
+  "characters": [
+    {"id": "c1", "name": "角色名", "color": "#十六进制颜色", "description": "角色外貌描述（英文）"}
+  ],
+  "storylines": {
+    "main": { "name": "主线", "description": "...", "nodes": [...] },
+    "branch_ch1": { "name": "第一章·分支", "description": "...", "nodes": [...] },
+    "parallel_ch1": { "name": "第一章·平行", "description": "...", "nodes": [...] },
+    "branch_ch2": { "name": "第二章·分支", "description": "...", "nodes": [...] }
+  }
+}
+
+节点类型（与原来完全相同）：
+{ "type": "scene", "sceneKey": "唯一场景标识(英文)", "bgPrompt": "英文场景描述", "chapter": "第X章：章节名" }
+{ "type": "narrate", "text": "旁白文字，支持**加粗**标记" }
+{ "type": "dialog", "speaker": "c1", "text": "对话内容" }
+{ "type": "choice", "question": "选择提示", "options": [
+  {"text": "选项文字", "gotoStoryline": "目标故事线ID", "gotoNode": 0},
+  {"text": "选项文字", "gotoStoryline": "目标故事线ID", "gotoNode": 0}
+] }
+{ "type": "card", "title": "档案标题", "text": "档案内容", "teaser": "下一章预告" }
+{ "type": "hero", "title": "英雄时刻标题", "subtitle": "副标题" }
+{ "type": "gacha", "question": "抽卡提示", "pool": [{"weight": 20, "rarity": "good", "text": "..."}, {"weight": 50, "rarity": "normal", "text": "..."}, {"weight": 25, "rarity": "bad", "text": "..."}, {"weight": 5, "rarity": "hidden", "text": "..."}] }
+{ "type": "ending", "title": "结局标题", "text": "结局描述" }
+
+规则：
+1. 主线必须覆盖大纲所有章节和情节点，按序展开，不得压缩省略
+2. 每个情节点用1-2个 dialog/narrate 节点表达，重要转折用 hero 节点
+3. 每章开头必须有 scene 节点（bgPrompt 英文描述场景）
+4. 每章末有 card 档案节点 + choice 节点（跳转到该章branch和parallel）
+5. branch/parallel 故事线也要有 scene 节点和 ending 节点
+6. characters 的 description 字段用英文外貌描述
+7. storylines 的 key 用英文蛇形命名，name 用中文
+8. 只输出纯 JSON，不要 markdown 代码块
+9. 所有字符串值中不得使用中文引号""，只用英文双引号
+10. dialog 每段文字不超过40字`;
+
 app.post('/api/gen-outline', async (req, res) => {
   const { text, title, characters } = req.body;
   if (!text) return res.status(400).json({ error: '请提供文本内容' });
@@ -241,7 +296,7 @@ app.post('/api/gen-storylines', async (req, res) => {
 【故事标题】
 ${outline.title || ''}
 
-【故事大纲】
+【故事大纲（共${(outline.chapters || []).length}章）】
 ${chapterLines}
 
 【主要人物】
@@ -251,9 +306,11 @@ ${charHints}
 ${charDescHints}
 
 要求：
-- 主线剧情严格按照大纲内容展开，覆盖所有章节的核心情节
-- 支线和平行故事线可在大纲基础上自主发挥
-- characters 字段中每个角色的 description 用英文描述外貌，参考上方人物外貌参考`;
+- 主线必须完整覆盖大纲所有章节，每个情节点都要体现为对话或旁白节点，不得省略
+- 每章末尾插入 choice 节点，跳转到该章的 branch_ch{N} 和 parallel_ch{N} 故事线
+- 每章都要生成对应的分支线和平行线
+- characters 字段每个角色的 description 用英文外貌描述，参考上方人物外貌参考
+- 故事线总数应不少于章节数×2+1（主线+每章两条分支）`;
 
   let lastBadJson = '';
   for (let attempt = 0; attempt < 3; attempt++) {
@@ -261,13 +318,13 @@ ${charDescHints}
     try {
       const messages = attempt === 0
         ? [
-            { role: 'system', content: SYSTEM_PROMPT },
+            { role: 'system', content: STORYLINES_FROM_OUTLINE_PROMPT },
             { role: 'user', content: userMsg }
           ]
         : [
-            { role: 'user', content: `以下JSON格式有误，请修复并只输出合法JSON：\n\n${lastBadJson.substring(0, 8000)}` }
+            { role: 'user', content: `以下JSON格式有误，请修复并只输出合法JSON：\n\n${lastBadJson.substring(0, 12000)}` }
           ];
-      const content = await callDeepSeek(messages, () => {});
+      const content = await callDeepSeek(messages, () => {}, 16000);
       clearInterval(heartbeat);
       lastBadJson = content;
       const gameData = parseGameData(content);
@@ -301,11 +358,11 @@ app.post('/api/fetch-url', async (req, res) => {
   }
 });
 
-async function callDeepSeek(messages, onChunk) {
+async function callDeepSeek(messages, onChunk, maxTokens = 8000) {
   const resp = await fetch('https://api.deepseek.com/v1/chat/completions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${API_KEY}` },
-    body: JSON.stringify({ model: 'deepseek-v4-pro', max_tokens: 8000, response_format: { type: 'json_object' }, messages })
+    body: JSON.stringify({ model: 'deepseek-v4-pro', max_tokens: maxTokens, response_format: { type: 'json_object' }, messages })
   });
   if (!resp.ok) throw new Error('AI 接口错误: ' + await resp.text());
   const data = await resp.json();
