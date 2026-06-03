@@ -108,12 +108,10 @@ function renderCharacters() {
     card.className = 'char-card';
     card.id = 'char-' + ci;
 
-    const cachedPortrait = ImgCache.getSync('portrait_' + (c.id || c.name));
-
     card.innerHTML = `
       <div class="char-card-header">
         <div class="char-portrait-thumb" id="thumb-${ci}">
-          ${cachedPortrait ? `<img src="${cachedPortrait}" alt="">` : '👤'}
+          👤
         </div>
         <div class="char-basic">
           <div class="char-row-inline">
@@ -139,7 +137,7 @@ function renderCharacters() {
 
       <div class="char-portrait-area">
         <div class="char-portrait-preview" id="preview-${ci}">
-          ${cachedPortrait ? `<img src="${cachedPortrait}" alt="">` : '立绘预览'}
+          立绘预览
         </div>
         <div class="char-portrait-right">
           <div class="char-textarea-label" style="margin-top:0">立绘提示词（中文）</div>
@@ -148,7 +146,6 @@ function renderCharacters() {
             placeholder="用于 AI 生成立绘的提示词">${escapeHtml(c.portraitPrompt || '')}</textarea>
           <button class="btn-gen-portrait" id="pbtn-${ci}" onclick="genPortraitPreview(${ci})">生成立绘预览</button>
           <div class="portrait-status" id="pst-${ci}">
-            ${cachedPortrait ? '✓ 已生成' : ''}
           </div>
         </div>
       </div>`;
