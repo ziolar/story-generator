@@ -492,6 +492,9 @@ function handleChoice(node) {
         if (opt.gotoStoryline && storylines[opt.gotoStoryline]) {
           currentStoryline = opt.gotoStoryline;
           cursor = typeof opt.gotoNode === 'number' ? opt.gotoNode : 0;
+        } else if (opt.gotoStoryline && !storylines[opt.gotoStoryline]) {
+          // Target storyline missing (AI only generated main) — continue main
+          console.warn('Missing storyline:', opt.gotoStoryline, '— staying on main');
         } else if (typeof opt.gotoNode === 'number') {
           cursor = opt.gotoNode;
         }
