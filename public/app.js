@@ -520,6 +520,7 @@ function hideChoices() {
 
 // === Card ===
 function handleCard(node) {
+  if (gameData && gameData.disableCards) { advance(); return; }
   document.getElementById('card-title').textContent = node.title || '';
   document.getElementById('card-text').textContent = node.text || '';
   document.getElementById('card-teaser').textContent = node.teaser ? '▶ ' + node.teaser : '';
@@ -547,6 +548,7 @@ function closeHero() {
 let gachaNode = null;
 
 function handleGacha(node) {
+  if (gameData && gameData.disableGacha) { advance(); return; }
   gachaNode = node;
   document.getElementById('gacha-question').textContent = node.question || '抽取命运';
   const cardInner = document.getElementById('gacha-card').querySelector('.gacha-card-inner');

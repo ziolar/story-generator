@@ -34,6 +34,11 @@ function init() {
   if (!raw) { document.body.innerHTML = '<p style="padding:40px;color:#888">无预览数据，请先生成游戏</p>'; return; }
   gameData = JSON.parse(raw);
   document.getElementById('preview-title').textContent = gameData.title || '游戏预览';
+  // Restore toggle states from gameData
+  const gachaToggle = document.getElementById('toggle-gacha');
+  const cardsToggle = document.getElementById('toggle-cards');
+  if (gachaToggle) gachaToggle.checked = !gameData.disableGacha;
+  if (cardsToggle) cardsToggle.checked = !gameData.disableCards;
   renderInfo();
   renderPortraits();
   renderStory();
@@ -42,6 +47,20 @@ function init() {
   renderCards();
   renderEndings();
   renderScenes();
+}
+
+function setGachaEnabled(enabled) {
+  gameData.disableGacha = !enabled;
+  saveGameDataSafe();
+  const sec = document.getElementById('gacha-content');
+  if (sec) sec.style.opacity = enabled ? '' : '0.4';
+}
+
+function setCardsEnabled(enabled) {
+  gameData.disableCards = !enabled;
+  saveGameDataSafe();
+  const sec = document.getElementById('cards-content');
+  if (sec) sec.style.opacity = enabled ? '' : '0.4';
 }
 
 // ① 角色立绘（异步生成）

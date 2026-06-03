@@ -49,13 +49,23 @@
 
 <!-- 5. 抽卡池 -->
 <section class="panel" id="sec-gacha">
-  <h2 class="panel-title">⑤ 抽卡池</h2>
+  <h2 class="panel-title">⑤ 抽卡池
+    <label class="toggle-label no-print">
+      <input type="checkbox" id="toggle-gacha" checked onchange="setGachaEnabled(this.checked)">
+      <span>游戏中启用</span>
+    </label>
+  </h2>
   <div id="gacha-content"></div>
 </section>
 
 <!-- 6. 档案卡 -->
 <section class="panel" id="sec-cards">
-  <h2 class="panel-title">⑥ 档案卡</h2>
+  <h2 class="panel-title">⑥ 档案卡
+    <label class="toggle-label no-print">
+      <input type="checkbox" id="toggle-cards" checked onchange="setCardsEnabled(this.checked)">
+      <span>游戏中启用</span>
+    </label>
+  </h2>
   <div id="cards-content"></div>
 </section>
 
