@@ -8,6 +8,23 @@ const RARITY_LABEL = { good:'好结局', normal:'普通', bad:'坏结局', hidde
 
 let gameData = null;
 
+// Game ID from /preview/:id URL (null on plain /preview.html)
+const _previewIdMatch = location.pathname.match(/^\/preview\/([a-zA-Z0-9-]+)$/);
+const previewGameId = _previewIdMatch ? _previewIdMatch[1] : null;
+
+// Scoped ImgCache key helpers
+function portraitKey(id) { return previewGameId ? previewGameId + '_portrait_' + id : 'portrait_' + id; }
+function sceneKey(key)   { return previewGameId ? previewGameId + '_scene_' + key  : 'scene_' + key;    }
+
+// Fire-and-forget: persist one image to the DB under this game's namespace
+function saveImageToDB(imgKey, b64) {
+  if (!previewGameId) return;
+  fetch('/api/save-image/' + previewGameId, {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ key: imgKey, data: b64 })
+  }).catch(() => {});
+}
+
 // 安全写入 localStorage（图片不存入，避免超限）
 function saveGameDataSafe() {
   try {
@@ -20,7 +37,11 @@ function saveGameDataSafe() {
 
 function goPlay() {
   localStorage.setItem('gameAutoStart', '1');
-  // If we already have a saved game ID in the URL, go directly to it
+  // If on /preview/:id, go directly to /play/:id
+  if (previewGameId) {
+    window.location.href = '/play/' + previewGameId;
+    return;
+  }
   const match = location.pathname.match(/^\/play\/([a-z0-9-]+)$/i);
   if (match) {
     window.location.href = '/play/' + match[1];
@@ -29,10 +50,49 @@ function goPlay() {
   }
 }
 
-function init() {
-  const raw = localStorage.getItem('gamePreview');
-  if (!raw) { document.body.innerHTML = '<p style="padding:40px;color:#888">无预览数据，请先生成游戏</p>'; return; }
-  gameData = JSON.parse(raw);
+async function init() {
+  await ImgCache.init();
+
+  if (previewGameId) {
+    // Load game data from DB
+    try {
+      const res = await fetch('/api/load/' + previewGameId);
+      if (res.ok) {
+        gameData = await res.json();
+        localStorage.setItem('gamePreview', JSON.stringify(gameData));
+      }
+    } catch(e) {
+      console.warn('load from DB failed:', e);
+    }
+    // Load images from DB into scoped ImgCache keys
+    try {
+      const imgRes = await fetch('/api/load-images/' + previewGameId);
+      if (imgRes.ok) {
+        const imgs = await imgRes.json();
+        for (const [key, data] of Object.entries(imgs)) {
+          // key is like 'portrait_c1' or 'scene_village'
+          ImgCache.set(previewGameId + '_' + key, data);
+          // Also migrate unscoped key if not already present (from outline page)
+          if (!ImgCache.getSync(key)) ImgCache.set(key, data);
+        }
+      }
+    } catch(e) {
+      console.warn('load images from DB failed:', e);
+    }
+    // If DB load failed or no data, fall back to localStorage
+    if (!gameData) {
+      const raw = localStorage.getItem('gamePreview');
+      if (raw) gameData = JSON.parse(raw);
+    }
+  } else {
+    const raw = localStorage.getItem('gamePreview');
+    if (raw) gameData = JSON.parse(raw);
+  }
+
+  if (!gameData) {
+    document.body.innerHTML = '<p style="padding:40px;color:#888">无预览数据，请先生成游戏</p>';
+    return;
+  }
   document.getElementById('preview-title').textContent = gameData.title || '游戏预览';
   // Restore toggle states from gameData
   const gachaToggle = document.getElementById('toggle-gacha');
@@ -100,13 +160,20 @@ async function genPortrait(id, name) {
 
   // 已有缓存，直接显示（IndexedDB 优先，outline.js 可能已生成）
   const char = (gameData.characters || []).find(c => c.id === id);
-  const ssCached = ImgCache.getSync('portrait_' + id);
+  const pKey = portraitKey(id);
+  // Check scoped key first, then unscoped fallback (from outline page)
+  const ssCached = ImgCache.getSync(pKey) || (previewGameId ? ImgCache.getSync('portrait_' + id) : null);
   if (ssCached || char?.portrait) {
     const src = ssCached || char.portrait;
     let img = document.getElementById('pimg-' + id);
     if (!img) { img = document.createElement('img'); img.id = 'pimg-' + id; ph?.replaceWith(img); }
     img.src = src;
     if (st) st.textContent = '✓ 已生成';
+    // If we found it under unscoped key and have a game ID, migrate to scoped + DB
+    if (ssCached && previewGameId && !ImgCache.getSync(pKey)) {
+      ImgCache.set(pKey, ssCached);
+      saveImageToDB('portrait_' + id, ssCached);
+    }
     return;
   }
   try {
@@ -120,8 +187,9 @@ async function genPortrait(id, name) {
       if (!img) { img = document.createElement('img'); img.id = 'pimg-' + id; ph?.replaceWith(img); }
       img.src = data.b64;
       if (st) st.textContent = '✓ 已生成';
-      // 图片存 IndexedDB，避免 sessionStorage 超限
-      ImgCache.set('portrait_' + id, data.b64);
+      // Store in IndexedDB (scoped key) and persist to DB
+      ImgCache.set(pKey, data.b64);
+      saveImageToDB('portrait_' + id, data.b64);
       // gameData 只记录已生成标记，不存 b64
       const char = (gameData.characters || []).find(c => c.id === id);
       if (char) {
@@ -462,11 +530,19 @@ async function genBg(key) {
   // 已有缓存，直接显示
   const allNodes = Object.values(gameData.storylines || {}).flatMap(l => l.nodes || []);
   const cached = allNodes.find(n => n.type === 'scene' && n.sceneKey === key && n.bgCache);
-  if (cached) {
+  const sKey = sceneKey(key);
+  const ssCached = ImgCache.getSync(sKey) || (previewGameId ? ImgCache.getSync('scene_' + key) : null);
+  if (ssCached || cached) {
+    const src = ssCached || cached.bgCache;
     let img = document.getElementById('img-' + key);
     if (!img) { img = document.createElement('img'); img.id = 'img-' + key; ph?.replaceWith(img); }
-    img.src = cached.bgCache;
+    img.src = src;
     if (st) st.textContent = '✓ 已生成';
+    // Migrate unscoped to scoped if needed
+    if (ssCached && previewGameId && !ImgCache.getSync(sKey)) {
+      ImgCache.set(sKey, ssCached);
+      saveImageToDB('scene_' + key, ssCached);
+    }
     return;
   }
   try {
@@ -484,8 +560,9 @@ async function genBg(key) {
       }
       img.src = data.b64;
       if (st) st.textContent = '✓ 已生成';
-      // 图片存 IndexedDB，避免 sessionStorage 超限
-      ImgCache.set('scene_' + key, data.b64);
+      // Store with scoped key and persist to DB
+      ImgCache.set(sKey, data.b64);
+      saveImageToDB('scene_' + key, data.b64);
       // gameData 只记录已生成标记
       const allNodes = Object.values(gameData.storylines || {}).flatMap(l => l.nodes || []);
       allNodes.filter(n => n.type === 'scene' && n.sceneKey === key).forEach(n => n.bgReady = true);

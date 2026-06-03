@@ -209,8 +209,9 @@ function enterGame() {
 async function generatePortraits() {
   const chars = gameData.characters || [];
   for (const c of chars) {
-    // Check IndexedDB cache first (set by outline.js or preview.js)
-    const cached = ImgCache.getSync('portrait_' + c.id);
+    // Check scoped key first, then unscoped fallback
+    const pKey = portraitCacheKey(c.id);
+    const cached = ImgCache.getSync(pKey) || (currentGameId ? ImgCache.getSync('portrait_' + c.id) : null);
     if (cached) { charMap[c.id].portrait = cached; continue; }
     // 兼容旧格式（直接存了 b64）
     if (c.portrait) { charMap[c.id].portrait = c.portrait; continue; }
@@ -222,7 +223,8 @@ async function generatePortraits() {
       const data = await res.json();
       if (data.b64) {
         charMap[c.id].portrait = data.b64;
-        ImgCache.set('portrait_' + c.id, data.b64);
+        ImgCache.set(pKey, data.b64);
+        saveImageToDB('portrait_' + c.id, data.b64);
       }
     } catch(e) { console.warn('portrait gen failed', c.id, e); }
   }
@@ -270,8 +272,8 @@ async function handleScene(node) {
   }
 
   // Check IndexedDB cache first (set by preview.js or previous session)
-  const ssKey = 'scene_' + node.sceneKey;
-  const ssCached = ImgCache.getSync(ssKey);
+  const ssKey = sceneCacheKey(node.sceneKey);
+  const ssCached = ImgCache.getSync(ssKey) || (currentGameId ? ImgCache.getSync('scene_' + node.sceneKey) : null);
   if (ssCached) {
     bgCache[node.sceneKey] = ssCached;
     setBg(bgEl, ssCached);
@@ -299,6 +301,7 @@ async function handleScene(node) {
     if (data.b64) {
       bgCache[node.sceneKey] = data.b64;
       ImgCache.set(ssKey, data.b64);
+      saveImageToDB('scene_' + node.sceneKey, data.b64);
       setBg(bgEl, data.b64);
     } else {
       console.error('bg gen error:', data.error);
@@ -647,8 +650,10 @@ function backToEditor() {
   document.getElementById('hero-overlay').classList.add('hidden');
   document.getElementById('gacha-overlay').classList.add('hidden');
   document.getElementById('panel-overlay').classList.add('hidden');
-  // Return to preview page if we came from there, otherwise editor
-  if (localStorage.getItem('gamePreview')) {
+  // Return to preview page scoped to this game if we have an ID
+  if (currentGameId) {
+    window.location.href = '/preview/' + currentGameId;
+  } else if (localStorage.getItem('gamePreview')) {
     window.location.href = '/preview.html';
   } else {
     document.getElementById('game-view').classList.remove('active');
@@ -661,6 +666,19 @@ function showError(msg) {
   el.textContent = msg; el.classList.remove('hidden');
 }
 function hideError() { document.getElementById('error-msg').classList.add('hidden'); }
+
+// Fire-and-forget: persist one image to the DB under this game's namespace
+function saveImageToDB(imgKey, b64) {
+  if (!currentGameId) return;
+  fetch('/api/save-image/' + currentGameId, {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ key: imgKey, data: b64 })
+  }).catch(() => {});
+}
+
+// Scoped ImgCache key helpers (use game ID prefix when available)
+function portraitCacheKey(id)  { return currentGameId ? currentGameId + '_portrait_' + id  : 'portrait_' + id;  }
+function sceneCacheKey(sKey)   { return currentGameId ? currentGameId + '_scene_' + sKey   : 'scene_' + sKey;   }
 
 // === Share ===
 let shareToastEl = null;
@@ -745,9 +763,15 @@ ImgCache.init().then(() => {
   const playMatch = location.pathname.match(/^\/play\/([a-z0-9-]+)$/i);
   if (playMatch) {
     currentGameId = playMatch[1];
-    fetch('/api/load/' + playMatch[1])
-      .then(r => r.json())
-      .then(data => {
+    // Load game data and images from DB in parallel
+    Promise.all([
+      fetch('/api/load/' + currentGameId).then(r => r.json()),
+      fetch('/api/load-images/' + currentGameId).then(r => r.json()).catch(() => ({}))
+    ]).then(([data, imgs]) => {
+        // Populate ImgCache with game-scoped keys so generatePortraits/handleScene find them
+        for (const [key, b64] of Object.entries(imgs || {})) {
+          ImgCache.set(currentGameId + '_' + key, b64);
+        }
         if (data && data.storylines) {
           gameData = data;
           startGame();

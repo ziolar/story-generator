@@ -45,6 +45,18 @@ if (process.env.DATABASE_URL) {
   }).catch(e => {
     console.error('[db] init error:', e.message);
   });
+  db.query(`
+    CREATE TABLE IF NOT EXISTS game_images (
+      game_id TEXT NOT NULL,
+      key TEXT NOT NULL,
+      data TEXT NOT NULL,
+      PRIMARY KEY (game_id, key)
+    )
+  `).then(() => {
+    console.log('[db] game_images table ready');
+  }).catch(e => {
+    console.error('[db] game_images init error:', e.message);
+  });
 } else {
   console.log('[db] DATABASE_URL not set — using in-memory store');
   // Load from local file as fallback
@@ -72,6 +84,23 @@ async function dbLoad(id) {
     return { data: r.rows[0].data, savedAt: new Date(r.rows[0].saved_at).getTime() };
   }
   return gameStore[id] || null;
+}
+
+async function dbSaveImage(gameId, key, data) {
+  if (!db) return;
+  await db.query(
+    `INSERT INTO game_images (game_id, key, data) VALUES ($1, $2, $3)
+     ON CONFLICT (game_id, key) DO UPDATE SET data = $3`,
+    [gameId, key, data]
+  );
+}
+
+async function dbLoadImages(gameId) {
+  if (!db) return {};
+  const r = await db.query('SELECT key, data FROM game_images WHERE game_id = $1', [gameId]);
+  const result = {};
+  r.rows.forEach(row => { result[row.key] = row.data; });
+  return result;
 }
 
 async function dbDelete(id) {
@@ -656,6 +685,33 @@ app.delete('/api/games/:id', async (req, res) => {
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
+});
+
+// === Image store: save one image for a game ===
+app.post('/api/save-image/:id', async (req, res) => {
+  const { key, data } = req.body;
+  if (!key || !data) return res.status(400).json({ error: '缺少 key 或 data' });
+  try {
+    await dbSaveImage(req.params.id, key, data);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// === Image store: load all images for a game ===
+app.get('/api/load-images/:id', async (req, res) => {
+  try {
+    const imgs = await dbLoadImages(req.params.id);
+    res.json(imgs);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// === Preview page for /preview/:id ===
+app.get('/preview/:id', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'preview.html'));
 });
 
 // === Games list page ===

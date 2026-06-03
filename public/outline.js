@@ -267,15 +267,35 @@ async function genStorylines() {
       }
     });
 
-    // Preserve any portraits already generated in this session
-    (gameData.characters || []).forEach(gc => {
-      const id = gc.id || gc.name;
-      const cached = ImgCache.getSync('portrait_' + id);
-      if (cached) gc.portraitCached = true;
-    });
+    // Save to DB to get a stable game ID
+    let gameId = null;
+    try {
+      const saveRes = await fetch('/api/save', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify(gameData)
+      });
+      const saveData = await saveRes.json();
+      gameId = saveData.id || null;
+    } catch(e) {
+      console.warn('pre-save failed:', e);
+    }
+
+    // Upload any portraits already generated on the outline page
+    if (gameId) {
+      (gameData.characters || []).forEach(gc => {
+        const id = gc.id || gc.name;
+        const cached = ImgCache.getSync('portrait_' + id);
+        if (cached) {
+          fetch('/api/save-image/' + gameId, {
+            method: 'POST', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ key: 'portrait_' + id, data: cached })
+          }).catch(() => {});
+        }
+      });
+    }
 
     localStorage.setItem('gamePreview', JSON.stringify(gameData));
-    window.location.href = '/preview.html';
+    window.location.href = gameId ? '/preview/' + gameId : '/preview.html';
   } catch(e) {
     showGenError(e.message);
   } finally {
