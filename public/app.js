@@ -641,13 +641,18 @@ function restartGame() {
 
 function backToEditor() {
   if (typingTimer) { clearInterval(typingTimer); typingTimer = null; }
-  document.getElementById('game-view').classList.remove('active');
-  document.getElementById('editor-view').classList.add('active');
   document.getElementById('game-end').classList.add('hidden');
   document.getElementById('card-overlay').classList.add('hidden');
   document.getElementById('hero-overlay').classList.add('hidden');
   document.getElementById('gacha-overlay').classList.add('hidden');
   document.getElementById('panel-overlay').classList.add('hidden');
+  // Return to preview page if we came from there, otherwise editor
+  if (localStorage.getItem('gamePreview')) {
+    window.location.href = '/preview.html';
+  } else {
+    document.getElementById('game-view').classList.remove('active');
+    document.getElementById('editor-view').classList.add('active');
+  }
 }
 
 function showError(msg) {
