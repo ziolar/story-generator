@@ -207,6 +207,10 @@ async function genPortrait(id, name) {
 async function regenPortrait(id) {
   const btn = event.target;
   btn.disabled = true;
+  // Clear cached entry so genPortrait skips the cache and re-generates
+  const pKey = portraitKey(id);
+  ImgCache.set(pKey, null);
+  ImgCache.set('portrait_' + id, null);
   const char = (gameData.characters || []).find(c => c.id === id);
   await genPortrait(id, char?.name || id);
   btn.disabled = false;
