@@ -6,6 +6,7 @@ let cursor = 0;
 let bgCache = {};
 let typingTimer = null;
 let sceneLocked = false;
+let currentDialogSpeaker = null; // tracks active dialog speaker for portrait hide logic
 
 // === Image Style ===
 let selectedStyle = localStorage.getItem('imageStyle') || 'pixel';
@@ -327,6 +328,8 @@ function handleNarrate(node) {
   speakerEl.textContent = '';
   textEl.style.fontStyle = 'italic';
   textEl.style.color = '#a8a8b3';
+  // Hide portrait when narration interrupts a dialog run
+  hidePortrait();
   typeText(textEl, node.text, () => showNext());
 }
 
@@ -334,40 +337,51 @@ function handleNarrate(node) {
 function handleDialog(node) {
   const speakerEl = document.getElementById('dialog-speaker');
   const textEl = document.getElementById('dialog-text');
-  const portraitEl = document.getElementById('char-portrait');
   const char = charMap[node.speaker];
   if (node.speaker === 'narrator') {
     speakerEl.textContent = '';
     textEl.style.fontStyle = 'italic';
     textEl.style.color = '#a8a8b3';
-    portraitEl.classList.add('hidden');
+    hidePortrait();
   } else {
     speakerEl.textContent = char ? char.name : node.speaker;
     speakerEl.style.color = char ? char.color : '#f5a623';
     textEl.style.fontStyle = 'normal';
     textEl.style.color = '#f4f4f4';
     if (char && char.portrait) {
-      // Only flash in the portrait when the speaker changes
-      const prevSpeaker = portraitEl.dataset.speaker;
-      const speakerChanged = prevSpeaker !== node.speaker;
+      const portraitEl = document.getElementById('char-portrait');
+      const speakerChanged = currentDialogSpeaker !== node.speaker;
+      currentDialogSpeaker = node.speaker;
       portraitEl.src = char.portrait;
-      portraitEl.dataset.speaker = node.speaker;
       if (speakerChanged) {
         portraitEl.classList.remove('hidden');
         portraitEl.style.animation = 'none';
         requestAnimationFrame(() => { portraitEl.style.animation = ''; });
-        // Sync portrait bottom with dialog area height
         const dialogArea = document.getElementById('dialog-box-area');
         if (dialogArea) {
           document.getElementById('game-view').style.setProperty('--dialog-h', dialogArea.offsetHeight + 'px');
         }
       }
     } else {
-      portraitEl.classList.add('hidden');
-      portraitEl.dataset.speaker = '';
+      hidePortrait();
     }
   }
-  typeText(textEl, node.text, () => showNext());
+  // Look ahead: hide portrait after this dialog line if next node is not a dialog by the same speaker
+  typeText(textEl, node.text, () => {
+    const nodes = storylines[currentStoryline]?.nodes || [];
+    const nextNode = nodes[cursor]; // cursor already points to next after advance()
+    const nextIsSameSpeaker = nextNode?.type === 'dialog' && nextNode?.speaker === node.speaker && nextNode?.speaker !== 'narrator';
+    if (!nextIsSameSpeaker) {
+      hidePortrait();
+    }
+    showNext();
+  });
+}
+
+function hidePortrait() {
+  const portraitEl = document.getElementById('char-portrait');
+  portraitEl.classList.add('hidden');
+  currentDialogSpeaker = null;
 }
 
 // === Typewriter ===
@@ -612,6 +626,7 @@ function restartGame() {
   document.getElementById('game-end').classList.add('hidden');
   currentStoryline = 'main';
   cursor = 0;
+  hidePortrait();
   // Show cover again on restart
   const cover = document.getElementById('cover-view');
   cover.classList.remove('fade-out');
