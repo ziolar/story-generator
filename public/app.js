@@ -366,16 +366,7 @@ function handleDialog(node) {
       hidePortrait();
     }
   }
-  // Look ahead: hide portrait after this dialog line if next node is not a dialog by the same speaker
-  typeText(textEl, node.text, () => {
-    const nodes = storylines[currentStoryline]?.nodes || [];
-    const nextNode = nodes[cursor]; // cursor already points to next after advance()
-    const nextIsSameSpeaker = nextNode?.type === 'dialog' && nextNode?.speaker === node.speaker && nextNode?.speaker !== 'narrator';
-    if (!nextIsSameSpeaker) {
-      hidePortrait();
-    }
-    showNext();
-  });
+  typeText(textEl, node.text, () => showNext());
 }
 
 function hidePortrait() {
@@ -623,7 +614,17 @@ document.getElementById('dialog-box').addEventListener('click', () => {
   } else {
     // tap-hint visible means waiting for next
     const hint = document.getElementById('tap-hint');
-    if (!hint.classList.contains('hidden')) advance();
+    if (!hint.classList.contains('hidden')) {
+      // Check if portrait should hide when advancing to next node
+      const nodes = storylines[currentStoryline]?.nodes || [];
+      const nextNode = nodes[cursor];
+      const currentNode = nodes[cursor - 1];
+      const nextIsSameSpeaker = nextNode?.type === 'dialog' && nextNode?.speaker === currentNode?.speaker && nextNode?.speaker !== 'narrator';
+      if (!nextIsSameSpeaker) {
+        hidePortrait();
+      }
+      advance();
+    }
   }
 });
 
