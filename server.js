@@ -88,17 +88,14 @@ async function dbDelete(id) {
 async function dbList() {
   if (db) {
     const r = await db.query(
-      `SELECT id, data->>'title' AS title, saved_at,
-              jsonb_array_length(COALESCE(data->'characters','[]'::jsonb)) AS char_count,
-              (SELECT COUNT(*) FROM jsonb_object_keys(COALESCE(data->'storylines','{}'::jsonb))) AS storyline_count
-       FROM games ORDER BY saved_at DESC LIMIT 100`
+      `SELECT id, data, saved_at FROM games ORDER BY saved_at DESC LIMIT 100`
     );
     return r.rows.map(row => ({
       id: row.id,
-      title: row.title || '未命名故事',
+      title: row.data?.title || '未命名故事',
       savedAt: new Date(row.saved_at).getTime(),
-      characterCount: parseInt(row.char_count) || 0,
-      storylineCount: parseInt(row.storyline_count) || 0,
+      characterCount: (row.data?.characters || []).length,
+      storylineCount: Object.keys(row.data?.storylines || {}).length,
     }));
   }
   return Object.entries(gameStore)
