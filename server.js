@@ -90,7 +90,7 @@ async function dbList() {
     const r = await db.query(
       `SELECT id, data->>'title' AS title, saved_at,
               jsonb_array_length(COALESCE(data->'characters','[]'::jsonb)) AS char_count,
-              (SELECT COUNT(*) FROM jsonb_object_keys(COALESCE(data->'storylines','{}':jsonb))) AS storyline_count
+              (SELECT COUNT(*) FROM jsonb_object_keys(COALESCE(data->'storylines','{}'::jsonb))) AS storyline_count
        FROM games ORDER BY saved_at DESC LIMIT 100`
     );
     return r.rows.map(row => ({
