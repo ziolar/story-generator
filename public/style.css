@@ -261,6 +261,22 @@ textarea::placeholder{color:var(--text2)}
   padding:4px 10px;cursor:pointer;font-family:inherit;font-size:12px;white-space:nowrap;border-radius:3px}
 .share-toast .toast-close{border:none;color:var(--text2);padding:0 4px;font-size:16px}
 
+/* ===== Achievement Toast ===== */
+.achievement-toast{
+  position:fixed;top:16px;right:16px;
+  background:rgba(20,16,10,.95);border:1px solid var(--gold);
+  padding:10px 14px;border-radius:6px;z-index:60;
+  display:flex;align-items:center;gap:10px;
+  backdrop-filter:blur(12px);
+  transform:translateX(120%);transition:transform .35s cubic-bezier(.34,1.56,.64,1);
+  max-width:220px;
+}
+.achievement-toast.show{transform:translateX(0)}
+.ach-icon{font-size:22px;flex-shrink:0}
+.ach-body{min-width:0}
+.ach-label{font-size:9px;letter-spacing:2px;color:var(--gold);opacity:.7;margin-bottom:2px}
+.ach-name{font-size:12px;color:var(--text);letter-spacing:.5px}
+
 /* ===== End Screen ===== */
 .game-end{position:fixed;inset:0;background:rgba(0,0,0,.9);display:flex;align-items:center;
   justify-content:center;z-index:30;padding:20px}

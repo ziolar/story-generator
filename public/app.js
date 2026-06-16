@@ -169,6 +169,7 @@ function startGame() {
   currentStoryline = 'main';
   cursor = 0;
   bgCache = {};
+  initAchievements();
 
   // Show cover screen
   const title = gameData.title || '互动故事';
@@ -253,6 +254,7 @@ async function advance() {
     case 'hero':     handleHero(node); break;
     case 'gacha':    handleGacha(node); break;
     case 'ending':   handleEnding(node); break;
+    case 'jump':     handleJump(node); break;
     default:         advance(); break;
   }
 }
@@ -487,6 +489,8 @@ function handleChoice(node) {
     btn.onclick = () => {
       btn.classList.add('selected');
       choicesEl.querySelectorAll('.choice-btn').forEach(b => b.disabled = true);
+      // Unlock achievement if this option has one
+      if (opt.achievement) unlockAchievement(opt.achievement);
       setTimeout(() => {
         hideChoices();
         // 新格式：gotoStoryline + gotoNode
@@ -494,8 +498,8 @@ function handleChoice(node) {
           currentStoryline = opt.gotoStoryline;
           cursor = typeof opt.gotoNode === 'number' ? opt.gotoNode : 0;
         } else if (opt.gotoStoryline && !storylines[opt.gotoStoryline]) {
-          // Target storyline missing (AI only generated main) — continue main
-          console.warn('Missing storyline:', opt.gotoStoryline, '— staying on main');
+          // Target storyline not yet generated — stay on current line
+          console.warn('Missing storyline:', opt.gotoStoryline, '— staying on current');
         } else if (typeof opt.gotoNode === 'number') {
           cursor = opt.gotoNode;
         }
@@ -595,6 +599,46 @@ function closeGacha() {
   document.getElementById('gacha-overlay').classList.add('hidden');
   gachaNode = null;
   advance();
+}
+
+// === Jump (auto-navigate to another storyline/node, no player input) ===
+function handleJump(node) {
+  if (node.gotoStoryline && storylines[node.gotoStoryline]) {
+    currentStoryline = node.gotoStoryline;
+    cursor = typeof node.gotoNode === 'number' ? node.gotoNode : 0;
+  } else if (typeof node.gotoNode === 'number') {
+    cursor = node.gotoNode;
+  }
+  advance();
+}
+
+// === Achievements ===
+let unlockedAchievements = [];
+
+function initAchievements() {
+  const key = 'ach_' + (currentGameId || 'local');
+  try { unlockedAchievements = JSON.parse(localStorage.getItem(key) || '[]'); } catch { unlockedAchievements = []; }
+}
+
+function unlockAchievement(id) {
+  if (!id || unlockedAchievements.includes(id)) return;
+  unlockedAchievements.push(id);
+  const key = 'ach_' + (currentGameId || 'local');
+  localStorage.setItem(key, JSON.stringify(unlockedAchievements));
+  const ach = (gameData?.achievements || []).find(a => a.id === id);
+  if (ach) showAchievementToast(ach);
+}
+
+function showAchievementToast(ach) {
+  const toast = document.createElement('div');
+  toast.className = 'achievement-toast';
+  toast.innerHTML = `<span class="ach-icon">${ach.icon || '🏆'}</span><div class="ach-body"><div class="ach-label">成就解锁</div><div class="ach-name">${ach.name}</div></div>`;
+  document.body.appendChild(toast);
+  requestAnimationFrame(() => toast.classList.add('show'));
+  setTimeout(() => {
+    toast.classList.remove('show');
+    setTimeout(() => toast.remove(), 400);
+  }, 3000);
 }
 
 // === Ending ===

@@ -272,60 +272,160 @@ const SYSTEM_PROMPT = `你是一个视觉小说游戏生成器。将用户提供
 19. characters 最多3个
 19. 所有字符串值中不得使用中文引号""，只用英文双引号`;
 
-// ===== Storylines-from-outline prompt (大规模，按大纲生成) =====
-const STORYLINES_FROM_OUTLINE_PROMPT = `你是一个视觉小说游戏生成器。根据用户提供的【完整故事大纲】生成视觉小说脚本。
+// ===== Storylines-from-outline prompt (branch map architecture) =====
+// 主线由后端代码从 plotPoints 构建，AI 只负责生成次主线/小支线/成就
+const STORYLINES_FROM_OUTLINE_PROMPT = `你是一个视觉小说游戏设计师。根据用户提供的故事大纲，设计互动分支结构。
 
-【核心结构】
-- storylines.main（主线）：覆盖大纲所有章节，每章2-4个节点（dialog/narrate）；在第3章末、中间章末、最后章末各插入一个 choice 节点，共3个分支点
-- 生成3条分支故事线（不是每章一条，而是整体3条）：
-  - branch_a：第一个分支点选择A后的走向（8-12节点，有完整结局）
-  - branch_b：第二个分支点选择A后的走向（8-12节点，有完整结局）
-  - branch_c：最终章分支点选择A后的走向（6-10节点，有完整结局）
-- 主线每条choice节点的选择B继续主线（gotoNode指向主线下一节点），选择A跳转到对应分支线
-- 主线末尾必须有 ending 节点
+【重要】主线剧情已由系统从大纲情节点自动生成，你不需要也不能生成主线节点。
+你的任务是：
+1. 在大纲情节点中选择"分支触发点"，指定每个触发点对应的分支类型和目标
+2. 生成3-4条次主线（每条有完整独立故事弧，15-20个节点，有结局）
+3. 生成5-10条小支线（每条3-5个节点，无结局，由系统自动插入跳转节点）
+4. 设计10-15个成就，覆盖所有分支选择
 
-【规模控制】
-- 主线节点总数：每章2-4节点，10章约25-40节点
-- 每条分支故事线：8-12节点
-- 总节点数控制在100个以内
+【分支类型】
+- small（小支线）：玩家短暂偏离主线，3-5个节点后自动并回主线或次主线。必须指定 mergeBackChapter 和 mergeBackPlotPointIndex。
+- sub_main（次主线）：玩家完全离开主线，走向独立故事弧，有专属结局。
 
-【JSON格式】
+【拓扑规则】
+- 次主线3-4条，分布在故事前段、中段、后段（大致均匀分布）
+- 小支线可以并回主线，也可以并回某条次主线（用 mergeBackStoryline 指定，默认并回 main）
+- 每条次主线必须有且只有一个 ending 节点作为最后节点
+- 成就与分支选择一一对应，解锁条件就是"做出了那个选择"
+
+【JSON 格式，严格输出此结构】
 {
-  "title": "故事标题",
-  "characters": [
-    {"id": "c1", "name": "角色名", "color": "#十六进制颜色", "description": "角色外貌描述（英文）"}
+  "branchMap": [
+    {
+      "chapter": 章节id数字,
+      "plotPointIndex": 情节点索引数字(0-based),
+      "type": "small" 或 "sub_main",
+      "targetId": "分支ID英文蛇形",
+      "optionText": "玩家看到的选择文字，10字以内",
+      "achievementId": "ach_xxx",
+      "mergeBackChapter": 并回章节id数字（type=small时必填）,
+      "mergeBackPlotPointIndex": 并回情节点索引数字（type=small时必填）,
+      "mergeBackStoryline": "main"（type=small时，默认main，也可填次主线id）
+    }
   ],
-  "storylines": {
-    "main": { "name": "主线", "description": "...", "nodes": [...] },
-    "branch_a": { "name": "分支：命运A", "description": "...", "nodes": [...] },
-    "branch_b": { "name": "分支：命运B", "description": "...", "nodes": [...] },
-    "branch_c": { "name": "分支：终章抉择", "description": "...", "nodes": [...] }
-  }
+  "subMainlines": {
+    "sub_main_id": {
+      "name": "次主线中文名",
+      "description": "简要描述这条支线的故事走向",
+      "nodes": []
+    }
+  },
+  "shortBranches": {
+    "short_id": {
+      "name": "小支线中文名",
+      "nodes": []
+    }
+  },
+  "achievements": [
+    {
+      "id": "ach_xxx",
+      "name": "成就名（4-8字）",
+      "icon": "单个emoji",
+      "description": "解锁条件描述，20字以内"
+    }
+  ]
 }
 
-节点类型：
-{ "type": "scene", "sceneKey": "唯一场景标识(英文)", "bgPrompt": "英文场景描述", "chapter": "第X章：章节名" }
-{ "type": "narrate", "text": "旁白文字，支持**加粗**标记" }
-{ "type": "dialog", "speaker": "c1", "text": "对话内容" }
-{ "type": "choice", "question": "选择提示", "options": [
-  {"text": "选项文字", "gotoStoryline": "branch_a", "gotoNode": 0},
-  {"text": "选项文字", "gotoNode": 下一个主线节点的索引}
-] }
-{ "type": "card", "title": "档案标题", "text": "档案内容", "teaser": "下一章预告" }
+节点类型（次主线和小支线均可使用）：
+{ "type": "scene", "sceneKey": "唯一英文标识", "bgPrompt": "英文场景描述，用于AI绘图", "chapter": "章节名" }
+{ "type": "narrate", "text": "旁白文字，支持**加粗**" }
+{ "type": "dialog", "speaker": "角色id或narrator", "text": "对话（不超过40字）" }
 { "type": "hero", "title": "英雄时刻标题", "subtitle": "副标题" }
-{ "type": "gacha", "question": "抽卡提示", "pool": [{"weight": 20, "rarity": "good", "text": "..."}, {"weight": 50, "rarity": "normal", "text": "..."}, {"weight": 25, "rarity": "bad", "text": "..."}, {"weight": 5, "rarity": "hidden", "text": "..."}] }
-{ "type": "ending", "title": "结局标题", "text": "结局描述" }
+{ "type": "gacha", "question": "提示", "pool": [{"weight":20,"rarity":"good","text":"..."},{"weight":50,"rarity":"normal","text":"..."},{"weight":25,"rarity":"bad","text":"..."},{"weight":5,"rarity":"hidden","text":"..."}] }
+{ "type": "ending", "title": "结局标题", "text": "结局描述（次主线专用，必须是最后节点）" }
 
 规则：
-1. 主线覆盖大纲所有章节，每章开头有 scene 节点，每章2-4个dialog/narrate节点，关键转折用 hero
-2. 主线中间穿插3个 choice 节点，每个choice有两个选项：一个跳转分支线，一个继续主线（gotoNode=主线下一节点索引）
-3. 分支故事线有自己的 scene、dialog、narrate 节点，最终有 ending 节点
-4. characters 的 description 字段用英文外貌描述
-5. storylines 的 key 用英文蛇形命名，name 用中文
-6. 只输出纯 JSON，不要 markdown 代码块
-7. 所有字符串值中不得使用中文引号""，只用英文双引号
-8. dialog 每段文字不超过40字
-9. 总节点数控制在100个以内，不要过度展开`;
+1. branchMap中的 chapter 和 plotPointIndex 必须在大纲范围内（章节id从1开始，情节点索引从0开始）
+2. 次主线节点中 dialog 的 speaker 必须使用 characters 数组中的 id
+3. 每条次主线体现"如果在那个关键时刻做了不同选择，故事将如何走向完全不同的结局"
+4. 小支线的 mergeBackChapter 必须 >= 触发章节，且必须 <= 最后章节
+5. 次主线每条15-20节点，开头必须是 scene 节点，结尾必须是 ending 节点
+6. 小支线每条3-5节点，开头建议是 scene 或 narrate，不含 ending 和 jump（系统自动添加）
+7. 只输出纯 JSON，不要 markdown 代码块，不要任何其他文字
+8. 所有字符串值不得使用中文引号，只用英文双引号
+9. 次主线总节点数控制在80以内，小支线总节点数控制在40以内`;
+
+// ===== Build main storyline from outline (code, not AI) =====
+function buildMainLine(outline, branchMap) {
+  const nodes = [];
+  const indexMap = {}; // "ch{id}_scene" | "ch{id}_pt{pi}" → node index
+
+  const entryByKey = {};
+  for (const e of (branchMap || [])) {
+    entryByKey[`ch${e.chapter}_pt${e.plotPointIndex}`] = e;
+  }
+
+  const chapters = outline.chapters || [];
+  for (let ci = 0; ci < chapters.length; ci++) {
+    const ch = chapters[ci];
+
+    // Scene node
+    indexMap[`ch${ch.id}_scene`] = nodes.length;
+    nodes.push({
+      type: 'scene',
+      sceneKey: `scene_ch${ch.id}`,
+      bgPrompt: (ch.summary || ch.title) + ', visual novel background, cinematic lighting',
+      chapter: ch.title
+    });
+
+    // PlotPoint nodes
+    for (let pi = 0; pi < (ch.plotPoints || []).length; pi++) {
+      const pt = ch.plotPoints[pi];
+      const key = `ch${ch.id}_pt${pi}`;
+      const thisIdx = nodes.length;
+      indexMap[key] = thisIdx;
+
+      const entry = entryByKey[key];
+      if (entry) {
+        // Branch trigger → choice node
+        nodes.push({
+          type: 'choice',
+          question: pt,
+          options: [
+            {
+              text: entry.optionText || '做出不同的选择',
+              gotoStoryline: entry.targetId,
+              gotoNode: 0,
+              ...(entry.achievementId ? { achievement: entry.achievementId } : {})
+            },
+            { text: '继续故事', gotoNode: thisIdx + 1 }
+          ]
+        });
+      } else {
+        nodes.push({ type: 'narrate', text: pt });
+      }
+    }
+
+    // Chapter summary card
+    nodes.push({
+      type: 'card',
+      title: ch.title,
+      text: ch.summary || '',
+      teaser: chapters[ci + 1]?.title || ''
+    });
+  }
+
+  // Main ending
+  nodes.push({
+    type: 'ending',
+    title: (outline.title || '故事') + ' — 主线结局',
+    text: '命运按照既定的轨迹走向终点。'
+  });
+
+  return { nodes, indexMap };
+}
+
+function charColor(id) {
+  const palette = ['#f5a623','#e94560','#4ade80','#60a5fa','#c084fc','#fb923c','#f472b6','#34d399'];
+  let h = 0;
+  for (const c of (id || 'x')) h = (h * 31 + c.charCodeAt(0)) & 0xffff;
+  return palette[h % palette.length];
+}
 
 app.post('/api/gen-outline', async (req, res) => {
   const { text, title, characters } = req.body;
@@ -384,57 +484,102 @@ app.post('/api/gen-storylines', async (req, res) => {
   res.setHeader('Cache-Control', 'no-cache');
   const sendError = (msg) => { res.write('\nERROR:' + msg); res.end(); };
 
-  // Format outline as natural language for the AI
+  // Format outline for AI — index-based plotPoints
   const chapterLines = (outline.chapters || []).map(ch => {
-    const pts = (ch.plotPoints || []).map((p, i) => `  ${i + 1}. ${p}`).join('\n');
-    return `【${ch.title}】\n概述：${ch.summary || ''}\n${pts}`;
+    const pts = (ch.plotPoints || []).map((p, i) => `  [${i}] ${p}`).join('\n');
+    return `【第${ch.id}章：${ch.title}】\n概述：${ch.summary || ''}\n${pts}`;
   }).join('\n\n');
 
-  const charHints = (characters || []).map(c =>
-    `- ${c.name}（${c.gender || ''}，${c.era || ''}）：${c.personality || ''}`
+  const charInfo = (characters || []).map(c =>
+    `- ${c.name} (id: ${c.id}): ${c.personality || ''}, ${c.gender || ''}, ${c.era || ''}`
   ).join('\n');
 
-  // Build English description hint for portrait generation
-  const charDescHints = (characters || []).map(c =>
-    `- ${c.name} (id: ${c.id || c.name}): ${c.appearance || c.background || ''}`
-  ).join('\n');
+  const userMsg = `请根据以下故事大纲设计分支结构、次主线内容和成就系统。
+注意：情节点索引从0开始，章节id从1开始。
 
-  const userMsg = `请根据以下故事大纲生成视觉小说游戏脚本。
+【故事标题】${outline.title || ''}
 
-【故事标题】
-${outline.title || ''}
-
-【故事大纲（共${(outline.chapters || []).length}章）】
+【章节大纲（共${(outline.chapters || []).length}章）】
 ${chapterLines}
 
 【主要人物】
-${charHints}
+${charInfo}
 
-【人物外貌参考（用于生成 characters[].description 英文描述）】
-${charDescHints}
-
-要求：
-- 主线覆盖所有章节，每章2-4个节点，控制总节点数在100以内
-- 主线中穿插3个 choice 节点（在第3章、中间章、最后章末尾），跳转到 branch_a / branch_b / branch_c
-- 生成3条分支故事线（branch_a / branch_b / branch_c），每条8-12节点，有 ending
-- characters 字段每个角色的 description 用英文外貌描述，参考上方人物外貌参考`;
+请生成3-4条次主线（sub_main）、5-10条小支线（small），以及成就系统。小支线末尾不要加ending或jump节点，系统会自动插入。`;
 
   let lastBadJson = '';
   for (let attempt = 0; attempt < 3; attempt++) {
     const heartbeat = setInterval(() => res.write('.'), 5000);
     try {
       const messages = attempt === 0
-        ? [
-            { role: 'system', content: STORYLINES_FROM_OUTLINE_PROMPT },
-            { role: 'user', content: userMsg }
-          ]
-        : [
-            { role: 'user', content: `以下JSON格式有误，请修复并只输出合法JSON：\n\n${lastBadJson.substring(0, 12000)}` }
-          ];
+        ? [{ role: 'system', content: STORYLINES_FROM_OUTLINE_PROMPT }, { role: 'user', content: userMsg }]
+        : [{ role: 'user', content: `以下JSON格式有误，请修复并只输出合法JSON：\n\n${lastBadJson.substring(0, 12000)}` }];
+
       const content = await callDeepSeek(messages, () => {}, 32000, 'deepseek-v4-flash');
       clearInterval(heartbeat);
       lastBadJson = content;
-      const gameData = parseGameData(content);
+
+      // Parse branch data
+      const cleaned = content
+        .replace(/```json\n?/gi, '').replace(/```\n?/g, '')
+        .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, '');
+      const m = cleaned.match(/\{[\s\S]*\}/);
+      if (!m) throw new Error('无 JSON 块');
+      let branchData;
+      try { branchData = JSON.parse(m[0]); }
+      catch { branchData = JSON.parse(jsonrepair(m[0])); }
+
+      if (!branchData.branchMap) throw new Error('缺少 branchMap 数据');
+
+      // Build main line from plotPoints (code, not AI)
+      const { nodes: mainNodes, indexMap } = buildMainLine(outline, branchData.branchMap);
+
+      // Add jump nodes to short branches (auto merge-back)
+      const shortBranches = branchData.shortBranches || {};
+      for (const entry of (branchData.branchMap || []).filter(e => e.type === 'small')) {
+        const branch = shortBranches[entry.targetId];
+        if (!branch || !branch.nodes) continue;
+        const mergeStoryline = entry.mergeBackStoryline || 'main';
+        let mergeIdx = 0;
+        if (mergeStoryline === 'main') {
+          const mergeKey = `ch${entry.mergeBackChapter}_pt${entry.mergeBackPlotPointIndex}`;
+          mergeIdx = indexMap[mergeKey] ?? indexMap[`ch${entry.mergeBackChapter}_scene`] ?? 0;
+        }
+        // For sub_main merge-back, gotoNode:0 is fine (start of that sub-mainline)
+        branch.nodes.push({ type: 'jump', gotoStoryline: mergeStoryline, gotoNode: mergeIdx });
+      }
+
+      // Assemble full storylines object
+      const storylines = {
+        main: { name: '主线', description: outline.title || '', nodes: mainNodes }
+      };
+      for (const [id, sl] of Object.entries(branchData.subMainlines || {})) {
+        storylines[id] = sl;
+      }
+      for (const [id, sl] of Object.entries(shortBranches)) {
+        storylines[id] = sl;
+      }
+
+      // Build characters from outline data (preserves portraitPrompt)
+      const gameChars = (characters || []).map(c => ({
+        id: c.id,
+        name: c.name,
+        color: charColor(c.id),
+        description: c.appearance || '',
+        portraitPrompt: c.portraitPrompt || '',
+        background: c.background || '',
+        gender: c.gender || '',
+        era: c.era || '',
+        personality: c.personality || ''
+      }));
+
+      const gameData = {
+        title: outline.title || '故事',
+        characters: gameChars,
+        storylines,
+        achievements: branchData.achievements || []
+      };
+
       res.write('\nDATA:' + JSON.stringify(gameData));
       return res.end();
     } catch (e) {
