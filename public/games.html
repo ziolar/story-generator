@@ -84,6 +84,7 @@ body{
 }
 .card-btn:hover{background:var(--surface2);color:var(--text)}
 .card-btn.play:hover{color:var(--gold)}
+.card-btn.edit:hover{color:#60a5fa}
 .card-btn.del:hover{color:var(--accent)}
 .card-btn + .card-btn{border-left:1px solid var(--surface2)}
 
@@ -167,6 +168,7 @@ function renderGames(games) {
       </div>
       <div class="card-actions">
         <button class="card-btn play" onclick="playGame('${g.id}')">▶ 游玩</button>
+        <button class="card-btn edit" onclick="editGame('${g.id}')">编辑</button>
         <button class="card-btn del" onclick="deleteGame('${g.id}', this)">删除</button>
       </div>
     </div>`).join('');
@@ -174,6 +176,10 @@ function renderGames(games) {
 
 function playGame(id) {
   window.location.href = '/play/' + id;
+}
+
+function editGame(id) {
+  window.location.href = '/preview/' + id;
 }
 
 async function deleteGame(id, btn) {
