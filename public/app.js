@@ -184,10 +184,11 @@ function startGame() {
   cover.classList.remove('fade-out');
   cover.classList.add('visible');
 
-  // Try to use first scene bg as cover image
+  // Try to use first scene bg as cover image (check scoped key first)
   const firstScene = (storylines.main?.nodes || []).find(n => n.type === 'scene');
   if (firstScene) {
-    const cached = ImgCache.getSync('scene_' + firstScene.sceneKey);
+    const cached = (currentGameId ? ImgCache.getSync(currentGameId + '_scene_' + firstScene.sceneKey) : null)
+                || ImgCache.getSync('scene_' + firstScene.sceneKey);
     if (cached) {
       document.getElementById('cover-bg').src = cached;
     }
@@ -305,14 +306,20 @@ async function handleScene(node) {
       setBg(bgEl, data.b64);
     } else {
       console.error('bg gen error:', data.error);
-      loadingEl.textContent = '图片生成失败: ' + (data.error || '未知错误');
+      loadingEl.textContent = '图片生成失败，点击继续';
+      loadingEl.style.cursor = 'pointer';
+      loadingEl.onclick = () => advance();
     }
   } catch(e) {
     console.error('bg gen failed', e);
-    loadingEl.textContent = '图片请求失败: ' + e.message;
+    loadingEl.textContent = '图片请求失败，点击继续';
+    loadingEl.style.cursor = 'pointer';
+    loadingEl.onclick = () => advance();
   }
 
   loadingEl.classList.add('hidden');
+  loadingEl.style.cursor = '';
+  loadingEl.onclick = null;
   bgEl.style.opacity = '1';
   advance();
 }
