@@ -3,87 +3,55 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>游戏预览检查</title>
+<title>游戏编辑器</title>
 <link rel="stylesheet" href="/preview.css">
 </head>
 <body>
-<div class="toolbar no-print">
-  <button onclick="history.back()">◀ 返回</button>
-  <h1 id="preview-title">游戏预览</h1>
-  <button onclick="window.print()">🖨 打印</button>
-  <!--<button onclick="loadTestData()" style="background:none;border:1px solid #666;color:#666;font-family:inherit;padding:4px 8px;cursor:pointer;font-size:12px">测试分支图</button>-->
-  <button id="btn-play" onclick="goPlay()">▶ 开始游玩</button>
+<div class="editor-wrap">
+
+  <!-- 顶部工具栏 -->
+  <div class="toolbar">
+    <button class="tb-btn" onclick="history.back()">◀ 返回</button>
+    <h1 id="preview-title" class="tb-title">游戏编辑器</h1>
+    <div class="tb-actions">
+      <div id="gen-progress-wrap" class="gen-progress-wrap" style="display:none">
+        <div id="gen-progress-bar" class="gen-progress-bar"></div>
+        <span id="gen-progress-text" class="gen-progress-text">0/0</span>
+      </div>
+      <span id="save-indicator" class="save-indicator"></span>
+      <button class="tb-btn" id="btn-gen-all" onclick="genAll()">◎ 全部生成</button>
+      <button class="tb-btn tb-play" id="btn-play" onclick="goPlay()">▶ 游玩</button>
+      <button class="tb-btn tb-save" id="btn-save" onclick="saveGame()">💾 保存</button>
+    </div>
+  </div>
+
+  <!-- 主体：左导航 + 右内容 -->
+  <div class="editor-body">
+
+    <!-- 左侧导航 -->
+    <nav class="editor-nav" id="editor-nav">
+      <div class="nav-section-label">游戏信息</div>
+      <div class="nav-item active" data-panel="info">① 基本信息</div>
+      <div class="nav-section-label">图片资产</div>
+      <div class="nav-item" data-panel="portraits">② 角色立绘</div>
+      <div class="nav-item" data-panel="scenes">③ 场景背景</div>
+      <div class="nav-section-label">剧情结构</div>
+      <div class="nav-item" data-panel="story">④ 故事线</div>
+      <div class="nav-item" data-panel="branch">⑤ 逻辑分支</div>
+      <div class="nav-section-label">游戏元素</div>
+      <div class="nav-item" data-panel="gacha">⑥ 抽卡池</div>
+      <div class="nav-item" data-panel="cards">⑦ 档案卡</div>
+      <div class="nav-item" data-panel="endings">⑧ 结局</div>
+    </nav>
+
+    <!-- 右侧内容区 -->
+    <main class="editor-main" id="editor-main">
+      <div class="loading-placeholder">加载中…</div>
+    </main>
+
+  </div>
 </div>
 
-<!-- 1. 基本信息 -->
-<section class="panel" id="sec-info">
-  <h2 class="panel-title">① 基本信息</h2>
-  <div id="info-content"></div>
-</section>
-
-<!-- 1b. 角色立绘 -->
-<section class="panel" id="sec-portraits">
-  <h2 class="panel-title">① 角色立绘</h2>
-  <div id="portraits-progress" class="progress-bar no-print"><div id="portraits-bar"></div></div>
-  <div id="portraits-content" class="scenes-grid"></div>
-</section>
-
-<!-- 2. 故事线 -->
-<section class="panel" id="sec-story">
-  <h2 class="panel-title">② 故事线（平行故事）</h2>
-  <div id="story-content"></div>
-</section>
-
-<!-- 3. 分支逻辑图 -->
-<section class="panel" id="sec-branch">
-  <h2 class="panel-title">③ 逻辑分支图（选择→跳转）</h2>
-  <div id="branch-content"></div>
-</section>
-
-<!-- 4. 场景背景图 -->
-<section class="panel" id="sec-scenes">
-  <h2 class="panel-title">④ 场景背景图</h2>
-  <div id="scenes-progress" class="progress-bar no-print"><div id="scenes-bar"></div></div>
-  <div id="scenes-content" class="scenes-grid"></div>
-</section>
-
-<!-- 5. 抽卡池 -->
-<section class="panel" id="sec-gacha">
-  <h2 class="panel-title">⑤ 抽卡池
-    <label class="toggle-label no-print">
-      <input type="checkbox" id="toggle-gacha" checked onchange="setGachaEnabled(this.checked)">
-      <span>游戏中启用</span>
-    </label>
-  </h2>
-  <div id="gacha-content"></div>
-</section>
-
-<!-- 6. 档案卡 -->
-<section class="panel" id="sec-cards">
-  <h2 class="panel-title">⑥ 档案卡
-    <label class="toggle-label no-print">
-      <input type="checkbox" id="toggle-cards" checked onchange="setCardsEnabled(this.checked)">
-      <span>游戏中启用</span>
-    </label>
-  </h2>
-  <div id="cards-content"></div>
-</section>
-
-<!-- 7. 结局列表 -->
-<section class="panel" id="sec-endings">
-  <h2 class="panel-title">⑦ 结局列表</h2>
-  <div id="endings-content"></div>
-</section>
-
-<script>
-/*
-function loadTestData() {
-  const d = {"title":"测试分支图","characters":[{"id":"c1","name":"主角","color":"#60a5fa","description":"test"}],"storylines":{"main":{"name":"主线","nodes":[{"type":"scene","sceneKey":"s1","bgPrompt":"test"},{"type":"choice","question":"选择路线","options":[{"text":"选A","gotoStoryline":"line_a","gotoNode":0},{"text":"选B","gotoStoryline":"line_b","gotoNode":0}]}]},"line_a":{"name":"线路A","nodes":[{"type":"scene","sceneKey":"s2","bgPrompt":"test"},{"type":"choice","question":"再次选择","options":[{"text":"选A1","gotoStoryline":"line_a1","gotoNode":0},{"text":"选A2","gotoStoryline":"line_a2","gotoNode":0}]}]},"line_b":{"name":"线路B","nodes":[{"type":"scene","sceneKey":"s3","bgPrompt":"test"},{"type":"ending","title":"B结局"}]},"line_a1":{"name":"线路A1","nodes":[{"type":"scene","sceneKey":"s4","bgPrompt":"test"},{"type":"ending","title":"A1结局"}]},"line_a2":{"name":"线路A2","nodes":[{"type":"scene","sceneKey":"s5","bgPrompt":"test"},{"type":"ending","title":"A2结局"}]}}};
-  localStorage.setItem('gamePreview', JSON.stringify(d));
-  location.reload();
-}
-*/
-</script>
 <script src="/imgcache.js"></script>
 <script src="/preview.js"></script>
 </body>

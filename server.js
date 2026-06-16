@@ -718,6 +718,18 @@ app.get('/games', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'games.html'));
 });
 
+// === Update existing game data (from editor) ===
+app.put('/api/update/:id', async (req, res) => {
+  const data = req.body;
+  if (!data || !data.storylines) return res.status(400).json({ error: '无效的游戏数据' });
+  try {
+    await dbSave(req.params.id, data);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // === Share: save game data ===
 app.post('/api/save', async (req, res) => {
   const data = req.body;
