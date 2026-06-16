@@ -269,6 +269,15 @@ body{font-family:'Courier New',monospace;background:var(--bg);color:var(--text);
 .outline-ch-body{display:none;padding:4px 14px 12px;border-top:1px solid var(--border)}
 .outline-ch-body.open{display:block}
 .outline-ch-summary{font-size:12px;color:var(--text2);line-height:1.6;margin:8px 0}
+.outline-scene-prompt{
+  font-size:11px;color:#60a5fa;font-family:'Courier New',monospace;
+  line-height:1.5;margin:6px 0 10px;padding:6px 8px;
+  background:rgba(96,165,250,.06);border-left:2px solid rgba(96,165,250,.3);border-radius:0 2px 2px 0
+}
+.outline-scene-label{
+  font-size:9px;letter-spacing:2px;color:rgba(96,165,250,.6);
+  display:block;margin-bottom:3px
+}
 .outline-beats{display:flex;flex-direction:column;gap:4px;margin-top:8px}
 .outline-beat-row{display:flex;gap:8px;align-items:flex-start}
 .outline-beat-num{font-size:10px;color:var(--text2);flex-shrink:0;width:16px;padding-top:2px}

@@ -193,6 +193,7 @@ const OUTLINE_PROMPT = `你是一个视觉小说编剧，擅长节拍理论（be
       "title": "第一章：章节名",
       "summary": "章节摘要（50字以内，说明本章在三幕结构中的位置和核心冲突）",
       "beatType": "setup|inciting|rising|midpoint|dark|climax|resolution",
+      "scenePrompt": "本章场景的英文视觉描述，用于AI生成背景图。描述空间氛围、光线、色调、环境细节，可包含模糊的人物剪影，但不描述具体事件。例如：dimly lit interrogation room, single hanging bulb casting harsh shadows, worn concrete walls, two figures facing each other across a metal table",
       "plotPoints": [
         "节拍1：触发事件 → 角色面临的选择/压力 → 情感/状态转变",
         "节拍2：...",
@@ -224,8 +225,9 @@ const OUTLINE_PROMPT = `你是一个视觉小说编剧，擅长节拍理论（be
 3. 关键节拍类型（inciting/midpoint/dark/climax）的节拍尤其要强调"不可逆的选择"
 4. 从原文提取所有主要人物，不超过5个
 5. portraitPrompt 用中文撰写，描述具体外貌细节，便于 AI 生成立绘
-6. 只输出纯 JSON，不要 markdown 代码块，不要任何其他文字
-7. 所有字符串值中不得使用中文引号""，只用英文双引号`;
+6. scenePrompt 必须用英文，描述场景的视觉氛围（空间、光线、色调、环境细节），可含模糊人物剪影，禁止描述具体情节事件，禁止出现角色名字
+7. 只输出纯 JSON，不要 markdown 代码块，不要任何其他文字
+8. 所有字符串值中不得使用中文引号""，只用英文双引号`;
 
 const SYSTEM_PROMPT = `你是一个视觉小说游戏生成器。将用户提供的文本转化为视觉小说脚本。
 
@@ -398,7 +400,7 @@ function buildMainLine(outline, branchMap) {
     nodes.push({
       type: 'scene',
       sceneKey: `scene_ch${ch.id}`,
-      bgPrompt: (ch.summary || ch.title) + ', visual novel background, cinematic lighting',
+      bgPrompt: ch.scenePrompt || ch.summary || ch.title,
       chapter: ch.title
     });
 

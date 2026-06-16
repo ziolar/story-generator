@@ -280,6 +280,7 @@ function renderOutline(container) {
       </div>
       <div class="outline-ch-body">
         ${ch.summary ? `<div class="outline-ch-summary">${ch.summary}</div>` : ''}
+        ${ch.scenePrompt ? `<div class="outline-scene-prompt"><span class="outline-scene-label">SCENE</span>${ch.scenePrompt}</div>` : ''}
         <div class="outline-beats">
           ${(ch.plotPoints || []).map((pt, pi) =>
             `<div class="outline-beat-row">
