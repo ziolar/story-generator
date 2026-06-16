@@ -68,7 +68,7 @@ async function saveGame() {
 function goPlay() {
   localStorage.setItem('gameAutoStart', '1');
   if (previewGameId) { window.location.href = '/play/' + previewGameId; return; }
-  window.location.href = '/';
+  window.location.href = '/play';
 }
 
 // ── Gen-all progress bar ───────────────────────────────────────────────────
@@ -158,7 +158,10 @@ function escapeXml(s) {
 
 // ── Panel switcher ─────────────────────────────────────────────────────────
 const PANELS = {
+  new:       renderNew,
+  library:   renderLibrary,
   info:      renderInfo,
+  outline:   renderOutline,
   portraits: renderPortraits,
   scenes:    renderScenes,
   story:     renderStory,
@@ -178,11 +181,122 @@ function switchPanel(name) {
   if (fn) fn(main);
 }
 
+// ── ☰ Library panel ───────────────────────────────────────────────────────
+async function renderLibrary(container) {
+  const el = container || document.getElementById('editor-main');
+  el.innerHTML = `
+    <div class="panel-header"><h2>故事列表</h2></div>
+    <div id="library-list"><div class="empty-state">加载中…</div></div>`;
+
+  try {
+    const res = await fetch('/api/games');
+    const list = await res.json();
+    const cont = el.querySelector('#library-list');
+    if (!list.length) {
+      cont.innerHTML = '<div class="empty-state">暂无保存的故事</div>';
+      return;
+    }
+    cont.innerHTML = '';
+    list.forEach(g => {
+      const div = document.createElement('div');
+      div.className = 'library-item';
+      const date = new Date(g.savedAt).toLocaleDateString('zh-CN', { month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit' });
+      div.innerHTML = `
+        <div class="library-item-main" onclick="loadGame('${g.id}')">
+          <div class="library-title">${g.title || '未命名故事'}</div>
+          <div class="library-meta">${date} · ${g.storylineCount || 0} 条故事线 · ${g.characterCount || 0} 角色</div>
+        </div>
+        <div class="library-actions">
+          <button class="lib-btn" onclick="loadGame('${g.id}')">打开</button>
+          <button class="lib-btn lib-btn-del" onclick="deleteGame('${g.id}', this)">删除</button>
+        </div>`;
+      cont.appendChild(div);
+    });
+  } catch(e) {
+    el.querySelector('#library-list').innerHTML = `<div class="empty-state">加载失败: ${e.message}</div>`;
+  }
+}
+
+function loadGame(id) {
+  window.location.href = '/preview/' + id;
+}
+
+async function deleteGame(id, btn) {
+  if (!confirm('确认删除这个故事？')) return;
+  btn.disabled = true;
+  try {
+    await fetch('/api/games/' + id, { method: 'DELETE' });
+    // Re-render library
+    const main = document.getElementById('editor-main');
+    renderLibrary(main);
+  } catch(e) {
+    btn.disabled = false;
+    alert('删除失败: ' + e.message);
+  }
+}
+
+// ── ⊕ New story panel ─────────────────────────────────────────────────────
+function renderNew() {
+  openGenDialog();
+}
+
+// ── ② Outline panel ───────────────────────────────────────────────────────
+const BEAT_LABELS = {
+  setup:      { label: 'SETUP',      cls: 'beat-setup' },
+  inciting:   { label: 'INCITING',   cls: 'beat-inciting' },
+  rising:     { label: 'RISING',     cls: 'beat-rising' },
+  midpoint:   { label: 'MIDPOINT',   cls: 'beat-midpoint' },
+  dark:       { label: 'DARK',       cls: 'beat-dark' },
+  climax:     { label: 'CLIMAX',     cls: 'beat-climax' },
+  resolution: { label: 'RESOLUTION', cls: 'beat-resolution' },
+};
+
+function renderOutline(container) {
+  const el = container || document.getElementById('editor-main');
+  const outline = gameData.outline;
+  if (!outline) {
+    el.innerHTML = `<div class="panel-header"><h2>② 故事大纲</h2></div>
+      <div class="empty-state">无大纲数据</div>`;
+    return;
+  }
+  const chapters = outline.chapters || [];
+  el.innerHTML = `
+    <div class="panel-header">
+      <h2>② 故事大纲</h2>
+      <span style="font-size:11px;color:var(--text2)">${chapters.length} 章</span>
+    </div>
+    <div id="outline-chapters"></div>`;
+
+  const list = el.querySelector('#outline-chapters');
+  chapters.forEach((ch, ci) => {
+    const beat = BEAT_LABELS[ch.beatType] || null;
+    const div = document.createElement('div');
+    div.className = 'outline-chapter';
+    div.innerHTML = `
+      <div class="outline-ch-head" onclick="this.nextElementSibling.classList.toggle('open')">
+        <span class="outline-ch-num">${ci + 1}</span>
+        <span class="outline-ch-title">${ch.title || ''}</span>
+        ${beat ? `<span class="outline-ch-beat ${beat.cls}">${beat.label}</span>` : ''}
+      </div>
+      <div class="outline-ch-body">
+        ${ch.summary ? `<div class="outline-ch-summary">${ch.summary}</div>` : ''}
+        <div class="outline-beats">
+          ${(ch.plotPoints || []).map((pt, pi) =>
+            `<div class="outline-beat-row">
+              <span class="outline-beat-num">${pi + 1}</span>
+              <span class="outline-beat-text">${pt}</span>
+            </div>`
+          ).join('')}
+        </div>
+      </div>`;
+    list.appendChild(div);
+  });
+}
+
 // ── ① Basic Info ──────────────────────────────────────────────────────────
 function renderInfo(container) {
   const el = container || document.getElementById('editor-main');
   const title = gameData.title || '';
-  const chars  = gameData.characters || [];
 
   el.innerHTML = `
     <div class="panel-header"><h2>① 基本信息</h2></div>
@@ -191,41 +305,167 @@ function renderInfo(container) {
         <label>故事标题</label>
         <input id="field-title" value="${escapeXml(title)}" placeholder="输入标题…">
       </div>
-    </div>
-    <div class="info-section">
-      <div class="info-label">角色列表</div>
-      <div class="char-chips" id="char-chips"></div>
     </div>`;
-
-  const chips = el.querySelector('#char-chips');
-  if (chars.length) {
-    chars.forEach(c => {
-      const chip = document.createElement('div');
-      chip.className = 'char-chip';
-      chip.innerHTML = `<div class="char-dot" style="background:${c.color}"></div>
-        <span style="font-size:12px">${c.name}</span>
-        <span style="font-size:10px;color:var(--text2);margin-left:4px">${c.id}</span>`;
-      chips.appendChild(chip);
-    });
-  } else {
-    chips.innerHTML = '<span style="color:var(--text2);font-size:12px">无角色定义</span>';
-  }
 
   // Title edits
   el.querySelector('#field-title').addEventListener('input', e => {
     gameData.title = e.target.value;
-    document.getElementById('preview-title').textContent = e.target.value || '游戏编辑器';
+    document.getElementById('preview-title').textContent = e.target.value || '故事引擎';
     markDirty();
   });
 }
 
-// ── ② Portraits ───────────────────────────────────────────────────────────
+// ── Gen dialog ────────────────────────────────────────────────────────────
+function openGenDialog() {
+  document.getElementById('gen-dialog-backdrop').classList.remove('hidden');
+  document.getElementById('gen-dialog').classList.remove('hidden');
+  // Set bookmarklet href
+  const bm = document.getElementById('gd-bookmarklet');
+  if (bm) {
+    const script = `javascript:(function(){var t=document.body.innerText;window.open('${location.origin}/?import=1&text='+encodeURIComponent(t.slice(0,8000)),'_blank')})()`;
+    bm.href = script;
+  }
+}
+
+function closeGenDialog() {
+  document.getElementById('gen-dialog-backdrop').classList.add('hidden');
+  document.getElementById('gen-dialog').classList.add('hidden');
+  // If no game loaded, go back to "new" nav item active but don't loop
+  if (!gameData) return;
+  // Switch back to last game panel
+  const firstGame = document.querySelector('.nav-item[data-panel="info"]');
+  if (firstGame) switchPanel('info');
+}
+
+function gdSwitchTab(tab) {
+  document.querySelectorAll('.gd-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+  document.querySelectorAll('.gd-panel').forEach(p => p.classList.toggle('active', p.id === 'gd-panel-' + tab));
+}
+
+function gdCheckUrl(val) {
+  const hint = document.getElementById('gd-douban-hint');
+  if (!hint) return;
+  if (val.includes('douban.com/read')) {
+    hint.classList.remove('hidden');
+  } else {
+    hint.classList.add('hidden');
+  }
+}
+
+async function gdFetchUrl() {
+  const urlEl = document.getElementById('gd-url');
+  const preview = document.getElementById('gd-url-preview');
+  const url = urlEl?.value.trim();
+  if (!url) return;
+  preview.textContent = '抓取中…';
+  preview.classList.remove('hidden');
+  try {
+    const res = await fetch('/api/fetch-url', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ url })
+    });
+    const data = await res.json();
+    if (data.text) {
+      preview.textContent = data.text.slice(0, 200) + (data.text.length > 200 ? '…' : '');
+      preview.dataset.fullText = data.text;
+    } else {
+      preview.textContent = '抓取失败: ' + (data.error || '未知错误');
+    }
+  } catch(e) {
+    preview.textContent = '请求失败: ' + e.message;
+  }
+}
+
+async function gdGenerate() {
+  const btn = document.getElementById('gd-btn-generate');
+  const btnText = document.getElementById('gd-btn-text');
+  const btnLoading = document.getElementById('gd-btn-loading');
+  const errEl = document.getElementById('gd-error');
+
+  // Collect inputs
+  const title = document.getElementById('gd-title')?.value.trim() || '';
+  const activeStyle = document.querySelector('.gd-style-btn.active')?.dataset.style || 'pixel';
+  localStorage.setItem('imageStyle', activeStyle);
+
+  // Get text content
+  const activeTab = document.querySelector('.gd-tab.active')?.dataset.tab || 'text';
+  let text = '';
+  if (activeTab === 'text') {
+    text = document.getElementById('gd-text')?.value.trim() || '';
+  } else {
+    const preview = document.getElementById('gd-url-preview');
+    text = preview?.dataset.fullText || preview?.textContent || '';
+    if (!text || text.startsWith('抓取') || text.startsWith('请求')) {
+      text = document.getElementById('gd-url')?.value.trim() || '';
+    }
+  }
+
+  if (!text) {
+    errEl.textContent = '请输入故事文本或链接';
+    errEl.classList.remove('hidden');
+    return;
+  }
+  errEl.classList.add('hidden');
+
+  btn.disabled = true;
+  btnText.classList.add('hidden');
+  btnLoading.classList.remove('hidden');
+
+  try {
+    const res = await fetch('/api/gen-outline', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ text, title, style: activeStyle })
+    });
+    const raw = await res.text();
+    const dataLine = raw.split('\n').find(l => l.startsWith('DATA:'));
+    const errLine  = raw.split('\n').find(l => l.startsWith('ERROR:'));
+    if (errLine) throw new Error(errLine.slice(6));
+    if (!dataLine) throw new Error('生成失败，请重试');
+    const outline = JSON.parse(dataLine.slice(5));
+    localStorage.setItem('storyOutline', JSON.stringify(outline));
+    window.location.href = '/outline';
+  } catch(e) {
+    errEl.textContent = e.message;
+    errEl.classList.remove('hidden');
+  } finally {
+    btn.disabled = false;
+    btnText.classList.remove('hidden');
+    btnLoading.classList.add('hidden');
+  }
+}
+
+// Wire style buttons
+document.querySelectorAll('.gd-style-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.gd-style-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  });
+});
+
+// ── Show game nav items ────────────────────────────────────────────────────
+function showGameNav() {
+  const ids = ['nav-game-label','nav-info','nav-outline',
+    'nav-assets-label','nav-portraits','nav-scenes',
+    'nav-story-label','nav-story','nav-branch',
+    'nav-elements-label','nav-gacha','nav-cards','nav-endings'];
+  ids.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = '';
+  });
+  // Show toolbar buttons
+  ['btn-gen-all','btn-play','btn-save'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = '';
+  });
+}
+
+// ── ③ Portraits ───────────────────────────────────────────────────────────
 function renderPortraits(container) {
   const el = container || document.getElementById('editor-main');
   const chars = gameData.characters || [];
   el.innerHTML = `
     <div class="panel-header">
-      <h2>② 角色立绘</h2>
+      <h2>③ 角色立绘</h2>
       <div class="panel-header-actions">
         <span style="font-size:11px;color:var(--text2)" id="portrait-count"></span>
       </div>
@@ -355,13 +595,13 @@ async function regenPortrait(id) {
   await _genPortrait(id, char?.name||id);
 }
 
-// ── ③ Scenes ──────────────────────────────────────────────────────────────
+// ── ④ Scenes ──────────────────────────────────────────────────────────────
 function renderScenes(container) {
   const el = container || document.getElementById('editor-main');
   const scenes = getUniqueScenes();
   el.innerHTML = `
     <div class="panel-header">
-      <h2>③ 场景背景</h2>
+      <h2>④ 场景背景</h2>
       <div class="panel-header-actions">
         <span style="font-size:11px;color:var(--text2)" id="scene-count"></span>
       </div>
@@ -496,7 +736,7 @@ function renderStory(container) {
 
   el.innerHTML = `
     <div class="panel-header">
-      <h2>④ 故事线</h2>
+      <h2>⑤ 故事线</h2>
       <span style="font-size:11px;color:var(--text2)">${ids.length} 条故事线 · 点击文字可编辑</span>
     </div>
     <div class="story-scroll"><div class="story-cols" id="story-cols"></div></div>`;
@@ -586,7 +826,7 @@ function renderStory(container) {
 // ── ⑤ Branch diagram ──────────────────────────────────────────────────────
 function renderBranch(container) {
   const el = container || document.getElementById('editor-main');
-  el.innerHTML = `<div class="panel-header"><h2>⑤ 逻辑分支</h2></div><div class="branch-wrap" id="branch-svg-wrap"></div>`;
+  el.innerHTML = `<div class="panel-header"><h2>⑥ 逻辑分支</h2></div><div class="branch-wrap" id="branch-svg-wrap"></div>`;
   _drawBranchSvg(el.querySelector('#branch-svg-wrap'));
 }
 
@@ -700,7 +940,7 @@ function renderGacha(container) {
   const gachas = getAllNodes().filter(n=>n.type==='gacha');
   el.innerHTML = `
     <div class="panel-header">
-      <h2>⑥ 抽卡池</h2>
+      <h2>⑦ 抽卡池</h2>
       <div class="panel-header-actions">
         <label class="toggle-row" style="margin:0">
           <input type="checkbox" id="toggle-gacha" ${gameData.disableGacha?'':'checked'} onchange="setGachaEnabled(this.checked)">
@@ -744,7 +984,7 @@ function renderCards(container) {
   const cards = getAllNodes().filter(n=>n.type==='card');
   el.innerHTML = `
     <div class="panel-header">
-      <h2>⑦ 档案卡</h2>
+      <h2>⑧ 档案卡</h2>
       <div class="panel-header-actions">
         <label class="toggle-row" style="margin:0">
           <input type="checkbox" id="toggle-cards" ${gameData.disableCards?'':'checked'} onchange="setCardsEnabled(this.checked)">
@@ -778,7 +1018,7 @@ function setCardsEnabled(enabled) {
 function renderEndings(container) {
   const el = container || document.getElementById('editor-main');
   const endings = getAllNodes().filter(n=>n.type==='ending');
-  el.innerHTML = `<div class="panel-header"><h2>⑧ 结局</h2></div><div id="endings-list"></div>`;
+  el.innerHTML = `<div class="panel-header"><h2>⑨ 结局</h2></div><div id="endings-list"></div>`;
   const list = el.querySelector('#endings-list');
   if (!endings.length) { list.innerHTML = '<div class="empty-state">无结局节点</div>'; return; }
   endings.forEach((node,i)=>{
@@ -791,7 +1031,6 @@ function renderEndings(container) {
 
 // ── Init ──────────────────────────────────────────────────────────────────
 async function init() {
-  await ImgCache.init();
 
   if (previewGameId) {
     try {
@@ -819,18 +1058,20 @@ async function init() {
     if (raw) try { gameData = JSON.parse(raw); } catch {}
   }
 
-  if (!gameData) {
-    document.getElementById('editor-main').innerHTML =
-      '<div class="empty-state" style="padding:60px 0">无预览数据，请先生成游戏</div>';
-    return;
-  }
-
-  document.getElementById('preview-title').textContent = gameData.title || '游戏编辑器';
-
-  // Wire up nav
+  // Wire up nav (always, so "新建故事" works even without gameData)
   document.querySelectorAll('.nav-item').forEach(item => {
     item.addEventListener('click', () => switchPanel(item.dataset.panel));
   });
+
+  if (!gameData) {
+    // No game — show the new story dialog immediately
+    document.getElementById('editor-main').innerHTML = '';
+    openGenDialog();
+    return;
+  }
+
+  document.getElementById('preview-title').textContent = gameData.title || '故事引擎';
+  showGameNav();
 
   // Default panel
   switchPanel('info');

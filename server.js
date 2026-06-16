@@ -17,7 +17,7 @@ const { Pool } = require('pg');
 
 const app = express();
 app.use(express.json({ limit: '10mb' }));
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'public'), { index: false }));
 
 const PORT = process.env.PORT || 3001;
 const API_KEY = process.env.DEEPSEEK_API_KEY || '';
@@ -932,7 +932,17 @@ app.get('/api/load/:id', async (req, res) => {
 
 // === Share: serve game page for /play/:id ===
 app.get('/play/:id', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  res.sendFile(path.join(__dirname, 'public', 'game.html'));
+});
+
+// === Game player without ID (uses localStorage) ===
+app.get('/play', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'game.html'));
+});
+
+// === Root — serve preview/editor as universal entry point ===
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'preview.html'));
 });
 
 // === Outline editor page ===

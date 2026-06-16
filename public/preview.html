@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>游戏编辑器</title>
+<title>故事引擎</title>
 <link rel="stylesheet" href="/preview.css">
 </head>
 <body>
@@ -11,17 +11,16 @@
 
   <!-- 顶部工具栏 -->
   <div class="toolbar">
-    <button class="tb-btn" onclick="history.back()">◀ 返回</button>
-    <h1 id="preview-title" class="tb-title">游戏编辑器</h1>
+    <h1 id="preview-title" class="tb-title">故事引擎</h1>
     <div class="tb-actions">
       <div id="gen-progress-wrap" class="gen-progress-wrap" style="display:none">
         <div id="gen-progress-bar" class="gen-progress-bar"></div>
         <span id="gen-progress-text" class="gen-progress-text">0/0</span>
       </div>
       <span id="save-indicator" class="save-indicator"></span>
-      <button class="tb-btn" id="btn-gen-all" onclick="genAll()">◎ 全部生成</button>
-      <button class="tb-btn tb-play" id="btn-play" onclick="goPlay()">▶ 游玩</button>
-      <button class="tb-btn tb-save" id="btn-save" onclick="saveGame()">💾 保存</button>
+      <button class="tb-btn" id="btn-gen-all" onclick="genAll()" style="display:none">◎ 全部生成</button>
+      <button class="tb-btn tb-play" id="btn-play" onclick="goPlay()" style="display:none">▶ 游玩</button>
+      <button class="tb-btn tb-save" id="btn-save" onclick="saveGame()" style="display:none">💾 保存</button>
     </div>
   </div>
 
@@ -30,18 +29,22 @@
 
     <!-- 左侧导航 -->
     <nav class="editor-nav" id="editor-nav">
-      <div class="nav-section-label">游戏信息</div>
-      <div class="nav-item active" data-panel="info">① 基本信息</div>
-      <div class="nav-section-label">图片资产</div>
-      <div class="nav-item" data-panel="portraits">② 角色立绘</div>
-      <div class="nav-item" data-panel="scenes">③ 场景背景</div>
-      <div class="nav-section-label">剧情结构</div>
-      <div class="nav-item" data-panel="story">④ 故事线</div>
-      <div class="nav-item" data-panel="branch">⑤ 逻辑分支</div>
-      <div class="nav-section-label">游戏元素</div>
-      <div class="nav-item" data-panel="gacha">⑥ 抽卡池</div>
-      <div class="nav-item" data-panel="cards">⑦ 档案卡</div>
-      <div class="nav-item" data-panel="endings">⑧ 结局</div>
+      <div class="nav-section-label">工作台</div>
+      <div class="nav-item active" data-panel="new">⊕ 新建故事</div>
+      <div class="nav-item" data-panel="library">☰ 故事列表</div>
+      <div class="nav-section-label" id="nav-game-label" style="display:none">游戏信息</div>
+      <div class="nav-item" data-panel="info" id="nav-info" style="display:none">① 基本信息</div>
+      <div class="nav-item" data-panel="outline" id="nav-outline" style="display:none">② 故事大纲</div>
+      <div class="nav-section-label" id="nav-assets-label" style="display:none">图片资产</div>
+      <div class="nav-item" data-panel="portraits" id="nav-portraits" style="display:none">③ 角色立绘</div>
+      <div class="nav-item" data-panel="scenes" id="nav-scenes" style="display:none">④ 场景背景</div>
+      <div class="nav-section-label" id="nav-story-label" style="display:none">剧情结构</div>
+      <div class="nav-item" data-panel="story" id="nav-story" style="display:none">⑤ 故事线</div>
+      <div class="nav-item" data-panel="branch" id="nav-branch" style="display:none">⑥ 逻辑分支</div>
+      <div class="nav-section-label" id="nav-elements-label" style="display:none">游戏元素</div>
+      <div class="nav-item" data-panel="gacha" id="nav-gacha" style="display:none">⑦ 抽卡池</div>
+      <div class="nav-item" data-panel="cards" id="nav-cards" style="display:none">⑧ 档案卡</div>
+      <div class="nav-item" data-panel="endings" id="nav-endings" style="display:none">⑨ 结局</div>
     </nav>
 
     <!-- 右侧内容区 -->
@@ -49,6 +52,67 @@
       <div class="loading-placeholder">加载中…</div>
     </main>
 
+  </div>
+</div>
+
+<!-- 浮动生成对话框 -->
+<div id="gen-dialog-backdrop" class="gen-dialog-backdrop hidden" onclick="closeGenDialog()"></div>
+<div id="gen-dialog" class="gen-dialog hidden">
+  <div class="gen-dialog-header">
+    <span class="gen-dialog-title">新建故事</span>
+    <button class="gen-dialog-close" onclick="closeGenDialog()">✕</button>
+  </div>
+  <div class="gen-dialog-body">
+
+    <!-- 画面风格 -->
+    <div class="gd-section">
+      <div class="gd-label">画面风格</div>
+      <div class="gd-style-opts" id="gd-style-opts">
+        <button class="gd-style-btn active" data-style="pixel">🎮 像素风</button>
+        <button class="gd-style-btn" data-style="anime">✨ 动漫风</button>
+        <button class="gd-style-btn" data-style="ink">🖌 水墨风</button>
+        <button class="gd-style-btn" data-style="realistic">📷 写实风</button>
+        <button class="gd-style-btn" data-style="oil">🎨 油画风</button>
+      </div>
+    </div>
+
+    <!-- 故事标题 -->
+    <div class="gd-section">
+      <div class="gd-label">故事标题 <span class="gd-opt">选填</span></div>
+      <input type="text" id="gd-title" class="gd-input" placeholder="留空则由 AI 自动命名" maxlength="30">
+    </div>
+
+    <!-- 输入方式 tabs -->
+    <div class="gd-tabs">
+      <button class="gd-tab active" data-tab="text" onclick="gdSwitchTab('text')">输入文本</button>
+      <button class="gd-tab" data-tab="url" onclick="gdSwitchTab('url')">粘贴链接</button>
+    </div>
+
+    <!-- 文本输入 -->
+    <div id="gd-panel-text" class="gd-panel active">
+      <textarea id="gd-text" class="gd-textarea" placeholder="粘贴故事、小说、文章、剧情梗概……AI 将生成可玩的视觉小说。"></textarea>
+    </div>
+
+    <!-- URL输入 -->
+    <div id="gd-panel-url" class="gd-panel">
+      <div class="gd-url-row">
+        <input type="url" id="gd-url" class="gd-input" placeholder="https://example.com/article" oninput="gdCheckUrl(this.value)">
+        <button class="gd-fetch-btn" onclick="gdFetchUrl()">抓取</button>
+      </div>
+      <div id="gd-url-preview" class="gd-url-preview hidden"></div>
+      <div id="gd-douban-hint" class="gd-douban-hint hidden">
+        <div class="gd-douban-title">📖 豆瓣阅读需要书签工具</div>
+        <div class="gd-douban-body">豆瓣阅读内容需要登录后才能访问，请将下方按钮拖到书签栏，在豆瓣阅读页点击即可自动导入。</div>
+        <a id="gd-bookmarklet" class="gd-bm-btn" href="#" title="拖到书签栏">📥 导入到故事引擎</a>
+      </div>
+    </div>
+
+    <p id="gd-error" class="gd-error hidden"></p>
+
+    <button id="gd-btn-generate" class="gd-btn-generate" onclick="gdGenerate()">
+      <span id="gd-btn-text">生成大纲</span>
+      <span id="gd-btn-loading" class="hidden">生成中<span class="gd-dots"></span></span>
+    </button>
   </div>
 </div>
 
