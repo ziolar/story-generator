@@ -15,6 +15,16 @@ async function init() {
 
 // ── Chapters ──────────────────────────────────────────────────────────────
 
+const BEAT_LABELS = {
+  setup:      { label: 'SETUP',      cls: 'beat-setup' },
+  inciting:   { label: 'INCITING',   cls: 'beat-inciting' },
+  rising:     { label: 'RISING',     cls: 'beat-rising' },
+  midpoint:   { label: 'MIDPOINT',   cls: 'beat-midpoint' },
+  dark:       { label: 'DARK',       cls: 'beat-dark' },
+  climax:     { label: 'CLIMAX',     cls: 'beat-climax' },
+  resolution: { label: 'RESOLUTION', cls: 'beat-resolution' },
+};
+
 function renderChapters() {
   const list = document.getElementById('chapters-list');
   list.innerHTML = '';
@@ -25,12 +35,14 @@ function renderChapters() {
     const item = document.createElement('div');
     item.className = 'chapter-item';
     item.id = 'chapter-' + ci;
+    const beat = BEAT_LABELS[ch.beatType] || null;
 
     item.innerHTML = `
       <div class="chapter-head" onclick="toggleChapter(${ci})">
         <span class="chapter-num">${ci + 1}</span>
         <input type="text" class="chapter-title-input" value="${escapeAttr(ch.title || '')}"
           placeholder="章节标题" onclick="event.stopPropagation()" data-ci="${ci}">
+        ${beat ? `<span class="beat-tag ${beat.cls}">${beat.label}</span>` : ''}
         <span class="chapter-toggle" id="toggle-${ci}">▼</span>
       </div>
       <div class="chapter-body" id="body-${ci}">
