@@ -161,7 +161,7 @@ const STYLE_PRESETS = {
   realistic: 'Photorealistic cinematic style, dramatic lighting, high detail, film photography aesthetic, moody atmosphere. ',
   oil:       'Oil painting style, impressionist brushstrokes, rich textures, painterly aesthetic, dramatic chiaroscuro lighting. ',
 };
-const BG_COMPOSITION = 'COMPOSITION FOR MOBILE PHONE SCREEN: vertical portrait orientation 9:16 ratio, key visual elements positioned in UPPER 60% of frame, LOWER 40% must be empty/dark/negative space reserved for dialog box overlay. ';
+const BG_COMPOSITION = 'vertical portrait orientation 9:16 ratio, full composition filling the entire frame, cinematic scene. ';
 
 const OUTLINE_PROMPT = `你是一个视觉小说编剧。根据用户提供的文本，生成详细的故事大纲和人物档案。
 
