@@ -5,22 +5,25 @@
   --border:#2a2d45;
 }
 body{font-family:'Courier New',monospace;background:var(--bg);color:var(--text);
-  padding:0 0 60px;line-height:1.6}
+  padding:0 0 60px;line-height:1.6;font-size:14px}
 
 /* Toolbar */
 .toolbar{position:sticky;top:0;z-index:100;display:flex;align-items:center;gap:12px;
-  padding:10px 24px;background:var(--surface);border-bottom:2px solid var(--border)}
-.toolbar h1{flex:1;font-size:16px;letter-spacing:3px;color:var(--accent)}
+  padding:10px 24px;background:var(--surface);border-bottom:2px solid var(--border);
+  max-width:100%}
+.toolbar h1{flex:1;font-size:15px;letter-spacing:2px;color:var(--accent);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .toolbar button{background:none;border:2px solid var(--border);color:var(--text2);
-  padding:6px 16px;font-family:inherit;font-size:12px;cursor:pointer;letter-spacing:1px}
+  padding:5px 14px;font-family:inherit;font-size:12px;cursor:pointer;letter-spacing:1px;
+  white-space:nowrap}
 .toolbar button:hover{border-color:var(--accent);color:var(--text)}
 #btn-play{border-color:var(--accent2);color:var(--accent2)}
 #btn-play:hover{background:var(--accent2);color:#fff}
 
 /* Panels */
-.panel{max-width:960px;margin:32px auto;padding:0 24px;page-break-after:always}
-.panel-title{font-size:13px;letter-spacing:3px;color:var(--accent);
-  border-bottom:2px solid var(--border);padding-bottom:10px;margin-bottom:20px;
+.panel{max-width:800px;margin:24px auto;padding:0 24px;page-break-after:always}
+.panel-title{font-size:12px;letter-spacing:3px;color:var(--accent);
+  border-bottom:2px solid var(--border);padding-bottom:8px;margin-bottom:16px;
   display:flex;align-items:center;gap:12px}
 .toggle-label{display:flex;align-items:center;gap:6px;font-size:11px;letter-spacing:1px;
   color:var(--text2);cursor:pointer;margin-left:auto;font-weight:normal}
@@ -58,15 +61,15 @@ body{font-family:'Courier New',monospace;background:var(--bg);color:var(--text);
 #branch-content svg{display:block;overflow:visible}
 
 /* Scenes grid */
-.scenes-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px}
+.scenes-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px}
 .scene-card{background:var(--surface);border:1px solid var(--border);overflow:hidden}
-.scene-card img{width:100%;aspect-ratio:2/3;object-fit:cover;display:block;image-rendering:pixelated}
-.scene-card .scene-placeholder{width:100%;aspect-ratio:2/3;background:var(--surface2);
+.scene-card img{width:100%;aspect-ratio:1/1;object-fit:cover;display:block;image-rendering:pixelated}
+.scene-card .scene-placeholder{width:100%;aspect-ratio:1/1;background:var(--surface2);
   display:flex;align-items:center;justify-content:center;color:var(--text2);font-size:11px}
-.scene-card .scene-info{padding:8px 10px}
-.scene-key{font-size:11px;color:var(--accent);letter-spacing:1px;margin-bottom:4px}
+.scene-card .scene-info{padding:6px 8px}
+.scene-key{font-size:11px;color:var(--accent);letter-spacing:1px;margin-bottom:3px}
 .scene-prompt{font-size:11px;color:var(--text2);line-height:1.5}
-.scene-status{font-size:10px;color:var(--text2);margin-top:4px}
+.scene-status{font-size:10px;color:var(--text2);margin-top:3px}
 
 .progress-bar{height:4px;background:var(--surface2);margin-bottom:16px;border-radius:2px;overflow:hidden}
 #scenes-bar{height:100%;background:var(--accent);width:0%;transition:width .3s}
