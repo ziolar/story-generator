@@ -568,7 +568,7 @@ app.post('/api/gen-bg', async (req, res) => {
       const resp = await fetch(IMAGE_API, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${IMAGE_API_KEY}` },
-        body: JSON.stringify({ model: IMAGE_MODEL, prompt: fullPrompt, size: '2K', response_format: 'url', sequential_image_generation: 'disabled', stream: false, watermark: false }),
+        body: JSON.stringify({ model: IMAGE_MODEL, prompt: fullPrompt, size: '1440x2560', response_format: 'url', sequential_image_generation: 'disabled', stream: false, watermark: false }),
         signal: controller.signal
       });
       clearTimeout(timer);
